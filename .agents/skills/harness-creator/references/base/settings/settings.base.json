@@ -1,0 +1,136 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(chmod 777*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -fd*)",
+      "Bash(git checkout --*)",
+      "Read(**/.env*)",
+      "Read(**/secrets*)",
+      "Read(**/credentials*)",
+      "Read(**/*password*)",
+      "Read(**/*key*.pem)",
+      "Read(**/id_rsa*)",
+      "Write(**/.env*)",
+      "Write(**/secrets*)",
+      "Write(**/credentials*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-bash.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "paths": ["**/.claude/**"],
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-config.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "paths": ["docker/**", "Dockerfile*", "docker-compose*", "*.dockerfile"],
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-docker.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "paths": ["migrations/**", "**/alembic/**", "**/migrations/**"],
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-migration.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-commit.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "SessionStart",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Stop",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-stop.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "PreCompact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-compact.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "safety": {
+    "secretDetection": true,
+    "commitValidation": true,
+    "pushProtection": "warn",
+    "destructiveCommandConfirmation": true,
+    "sensitiveFileProtection": true,
+    "networkRestrictions": {
+      "allowedDomains": [],
+      "blockedDomains": []
+    }
+  }
+}

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 550" width="800" height="550">
+  <defs>
+    <linearGradient id="startGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="harnessGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+    <linearGradient id="decisionGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#c7d2fe"/>
+    </linearGradient>
+    <linearGradient id="executionGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d1fae5"/>
+      <stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+    <linearGradient id="evalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fee2e2"/>
+      <stop offset="100%" stop-color="#fecaca"/>
+    </linearGradient>
+    <linearGradient id="endGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <marker id="arrowDown" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="550" fill="#f8fafc"/>
+
+  <!-- Start: Claude Code 项目 -->
+  <rect x="200" y="20" width="400" height="50" rx="25" fill="url(#startGrad)"/>
+  <text x="400" y="50" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">Claude Code 项目</text>
+
+  <!-- Arrow down -->
+  <path d="M 400 70 L 400 85" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,85 400,95 405,85" fill="#6b7280"/>
+
+  <!-- Command box -->
+  <rect x="200" y="100" width="400" height="50" rx="10" fill="#1e1e1e"/>
+  <text x="400" y="130" font-family="Courier New, monospace" font-size="14" fill="#4ade80" text-anchor="middle">/harness-creator ./my-project</text>
+
+  <!-- Arrow down -->
+  <path d="M 400 150 L 400 165" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,165 400,175 405,165" fill="#6b7280"/>
+  <text x="420" y="165" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">一键生成</text>
+
+  <!-- Harness box -->
+  <rect x="150" y="180" width="500" height="45" rx="22" fill="url(#harnessGrad)"/>
+  <text x="400" y="207" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">融合架构 Harness</text>
+
+  <!-- Arrow down -->
+  <path d="M 400 225 L 400 245" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,245 400,255 405,245" fill="#6b7280"/>
+
+  <!-- Decision Layer -->
+  <g transform="translate(50, 260)">
+    <rect x="0" y="0" width="200" height="120" rx="12" fill="url(#decisionGrad)" stroke="#818cf8" stroke-width="2"/>
+    <text x="100" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#4f46e5" text-anchor="middle">决策层</text>
+
+    <rect x="20" y="40" width="160" height="30" rx="6" fill="#f0f4ff" stroke="#a5b4fc" stroke-width="1"/>
+    <text x="100" y="58" font-family="Arial, sans-serif" font-size="10" fill="#4338ca" text-anchor="middle">Planner</text>
+
+    <rect x="20" y="75" width="160" height="30" rx="6" fill="#f0f4ff" stroke="#a5b4fc" stroke-width="1"/>
+    <text x="100" y="93" font-family="Arial, sans-serif" font-size="10" fill="#4338ca" text-anchor="middle">architect-lead</text>
+
+    <text x="100" y="115" font-family="Arial, sans-serif" font-size="9" fill="#6366f1" text-anchor="middle">WHAT &amp; HOW</text>
+  </g>
+
+  <!-- Execution Layer -->
+  <g transform="translate(300, 260)">
+    <rect x="0" y="0" width="200" height="120" rx="12" fill="url(#executionGrad)" stroke="#34d399" stroke-width="2"/>
+    <text x="100" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#059669" text-anchor="middle">执行层</text>
+
+    <rect x="20" y="40" width="160" height="30" rx="6" fill="#ecfdf5" stroke="#4ade80" stroke-width="1"/>
+    <text x="100" y="58" font-family="Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle">Generator</text>
+
+    <rect x="20" y="75" width="160" height="30" rx="6" fill="#dcfce7" stroke="#4ade80" stroke-width="1"/>
+    <text x="100" y="93" font-family="Arial, sans-serif" font-size="10" fill="#166534" text-anchor="middle">+ Specialists</text>
+
+    <text x="100" y="115" font-family="Arial, sans-serif" font-size="9" fill="#16a34a" text-anchor="middle">协调实现</text>
+  </g>
+
+  <!-- Evaluation Layer -->
+  <g transform="translate(550, 260)">
+    <rect x="0" y="0" width="200" height="120" rx="12" fill="url(#evalGrad)" stroke="#f87171" stroke-width="2"/>
+    <text x="100" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#dc2626" text-anchor="middle">评估层</text>
+
+    <rect x="20" y="40" width="160" height="55" rx="6" fill="#fff1f2" stroke="#f87171" stroke-width="1"/>
+    <text x="100" y="65" font-family="Arial, sans-serif" font-size="10" fill="#b91c1c" text-anchor="middle">Evaluator</text>
+    <text x="100" y="80" font-family="Arial, sans-serif" font-size="9" fill="#dc2626" text-anchor="middle">质量把关</text>
+
+    <text x="100" y="115" font-family="Arial, sans-serif" font-size="9" fill="#dc2626" text-anchor="middle">独立审核</text>
+  </g>
+
+  <!-- Connecting lines -->
+  <path d="M 150 380 L 150 400 L 400 400" stroke="#818cf8" stroke-width="2" fill="none"/>
+  <path d="M 400 380 L 400 400" stroke="#34d399" stroke-width="2" fill="none"/>
+  <path d="M 650 380 L 650 400 L 400 400" stroke="#f87171" stroke-width="2" fill="none"/>
+  <path d="M 400 400 L 400 415" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,415 400,425 405,415" fill="#6b7280"/>
+
+  <!-- End quote -->
+  <rect x="100" y="430" width="600" height="60" rx="30" fill="url(#endGrad)"/>
+  <text x="400" y="455" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">这就是 Anthropic 工程师的工作方式</text>
+  <text x="400" y="477" font-family="Arial, sans-serif" font-size="11" fill="#92400e" text-anchor="middle">现在，一键部署到你的项目里</text>
+
+  <!-- GitHub link -->
+  <rect x="280" y="500" width="240" height="35" rx="17" fill="#24292e"/>
+  <text x="400" y="522" font-family="Arial, sans-serif" font-size="10" fill="white" text-anchor="middle">github.com/fanlw0816/harness-creator</text>
+</svg>

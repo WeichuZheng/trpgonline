@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "harness-creator": {
+      "source": "fanlw0816/harness-creator",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1817b6f134057b0f23a4b051028dfe8c5df19477db38e3b660785d8e908b296d"
+    }
+  }
+}

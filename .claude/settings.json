@@ -1,0 +1,8 @@
+{
+  "projectSkills": {
+    "harness-creator": {
+      "path": "./skills/harness-creator",
+      "enabled": true
+    }
+  }
+}

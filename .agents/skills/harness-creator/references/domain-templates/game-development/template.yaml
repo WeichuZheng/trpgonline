@@ -1,0 +1,109 @@
+# Game Development Domain Template Configuration
+
+template:
+  name: game-development
+  version: 1.0.0
+  description: "Game development with Unity/Unreal/Godot"
+  author: Harness Creator
+
+  # Detection rules for auto-matching
+  detection:
+    files:
+      - "*.unity"        # Unity scene files
+      - "*.gd"           # Godot GDScript
+      - "*.uproject"     # Unreal project
+      - "*.prefab"       # Unity prefabs
+    directories:
+      - "Assets/"
+      - "Scripts/"
+      - "Prefabs/"
+      - "Scenes/"
+    dependencies:
+      - "unity"
+      - "unreal"
+      - "godot"
+    keywords:
+      - "game"
+      - "unity"
+      - "unreal"
+      - "godot"
+      - "gameplay"
+      - "player"
+      - "enemy"
+
+  # Core agents (fixed for all harnesses)
+  core_agents:
+    - planner
+    - generator
+    - evaluator
+    - architect-lead
+
+  # Domain specialists (adjustable by user)
+  specialists:
+    - name: gameplay-dev
+      source: ./specialists/gameplay-dev.yaml
+      default: true
+    - name: graphics-dev
+      source: ./specialists/graphics-dev.yaml
+      default: true
+    - name: audio-dev
+      source: ./specialists/audio-dev.yaml
+      default: true
+    - name: ui-dev
+      source: ./specialists/ui-dev.yaml
+      default: true
+    - name: physics-dev
+      source: ./specialists/physics-dev.yaml
+      default: false  # Optional
+
+  # Domain-specific skills
+  skills:
+    - name: level-design
+      description: "Level design workflow and tools"
+    - name: asset-pipeline
+      description: "Asset import and optimization"
+    - name: performance-profile
+      description: "Performance profiling and optimization"
+
+  # Domain-specific rules (path-scoped)
+  rules:
+    - name: game-code
+      scope: "Scripts/**"
+      file: ./rules/game-code.md
+    - name: asset-organization
+      scope: "Assets/**"
+      file: ./rules/asset-organization.md
+
+  # Domain-specific evaluation criteria
+  evaluation:
+    - name: gameplay-criteria
+      description: "Gameplay quality evaluation"
+      file: ./evaluation/gameplay-criteria.md
+    - name: performance-criteria
+      description: "Performance benchmarks"
+      file: ./evaluation/performance-criteria.md
+
+  # Generated project structure
+  structure:
+    directories:
+      - Scripts/Gameplay
+      - Scripts/Graphics
+      - Scripts/Audio
+      - Scripts/UI
+      - Scripts/Physics
+      - Assets/Shaders
+      - Assets/Audio
+      - Assets/UI
+      - Assets/Prefabs
+      - Scenes
+
+  # Integration points
+  integration:
+    events:
+      - PlayerMovedEvent
+      - EnemySpawnedEvent
+      - ScoreChangedEvent
+    interfaces:
+      - IDamageable
+      - IInteractable
+      - ISaveable

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 650" width="800" height="650">
+  <defs>
+    <linearGradient id="step1Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+    <linearGradient id="step2Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="step3Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d1fae5"/>
+      <stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+    <linearGradient id="step4Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#c7d2fe"/>
+    </linearGradient>
+    <linearGradient id="contractBoxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#dcfce7"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="650" fill="#fafafa"/>
+
+  <!-- Title -->
+  <rect x="225" y="15" width="350" height="40" rx="20" fill="#4f46e5"/>
+  <text x="400" y="40" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">Sprint Contract 协商流程</text>
+
+  <!-- Step 1: Generator proposes -->
+  <g transform="translate(25, 70)">
+    <rect x="0" y="0" width="750" height="130" rx="12" fill="url(#step1Grad)" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="30" cy="25" r="18" fill="#f59e0b"/>
+    <text x="30" y="30" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">1</text>
+    <text x="60" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#92400e">Generator 提议 Contract</text>
+
+    <rect x="50" y="45" width="80" height="40" rx="8" fill="#fef9c3" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="90" y="70" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">Generator</text>
+
+    <path d="M 130 65 L 180 65" stroke="#d97706" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+    <rect x="190" y="40" width="320" height="80" rx="10" fill="url(#contractBoxGrad)" stroke="#4ade80" stroke-width="1.5"/>
+    <text x="350" y="55" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#166534" text-anchor="middle">Contract 内容</text>
+    <text x="210" y="75" font-family="Arial, sans-serif" font-size="9" fill="#047857">- gameplay-dev: 玩家移动逻辑</text>
+    <text x="210" y="92" font-family="Arial, sans-serif" font-size="9" fill="#047857">- graphics-dev: 移动粒子特效</text>
+    <text x="210" y="109" font-family="Arial, sans-serif" font-size="9" fill="#047857">- audio-dev: 脚步声音</text>
+    <text x="380" y="75" font-family="Arial, sans-serif" font-size="9" fill="#047857">- Event: PlayerMovedEvent</text>
+    <text x="380" y="92" font-family="Arial, sans-serif" font-size="9" fill="#047857">  (gameplay -&gt; others)</text>
+  </g>
+
+  <!-- Arrow between steps -->
+  <path d="M 400 200 L 400 205" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,205 400,215 405,205" fill="#6b7280"/>
+
+  <!-- Step 2: Architect reviews -->
+  <g transform="translate(25, 220)">
+    <rect x="0" y="0" width="750" height="120" rx="12" fill="url(#step2Grad)" stroke="#3b82f6" stroke-width="2"/>
+    <circle cx="30" cy="25" r="18" fill="#3b82f6"/>
+    <text x="30" y="30" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">2</text>
+    <text x="60" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#1e40af">architect-lead 评审架构</text>
+
+    <rect x="50" y="40" width="100" height="40" rx="8" fill="#eff6ff" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="100" y="65" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">architect-lead</text>
+
+    <g transform="translate(180, 40)">
+      <!-- Left column: checks -->
+      <rect x="0" y="0" width="16" height="16" rx="3" fill="#10b981"/>
+      <text x="8" y="12" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+      <text x="25" y="12" font-family="Arial, sans-serif" font-size="10" fill="#047857">领域边界清晰</text>
+
+      <rect x="0" y="24" width="16" height="16" rx="3" fill="#10b981"/>
+      <text x="8" y="36" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+      <text x="25" y="36" font-family="Arial, sans-serif" font-size="10" fill="#047857">Specialist 分配合适</text>
+
+      <rect x="0" y="48" width="16" height="16" rx="3" fill="#10b981"/>
+      <text x="8" y="60" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+      <text x="25" y="60" font-family="Arial, sans-serif" font-size="10" fill="#047857">模块依赖合理</text>
+
+      <!-- Right column: warning -->
+      <g transform="translate(260, 0)">
+        <rect x="0" y="0" width="16" height="16" rx="3" fill="#f59e0b"/>
+        <text x="8" y="12" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">!</text>
+        <text x="25" y="12" font-family="Arial, sans-serif" font-size="9" fill="#92400e">建议：增加 PlayerStateChangedEvent</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Arrow between steps -->
+  <path d="M 400 340 L 400 345" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,345 400,355 405,345" fill="#6b7280"/>
+
+  <!-- Step 3: Evaluator reviews -->
+  <g transform="translate(25, 360)">
+    <rect x="0" y="0" width="750" height="120" rx="12" fill="url(#step3Grad)" stroke="#10b981" stroke-width="2"/>
+    <circle cx="30" cy="25" r="18" fill="#10b981"/>
+    <text x="30" y="30" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">3</text>
+    <text x="60" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#047857">Evaluator 评审可测试性</text>
+
+    <rect x="50" y="40" width="80" height="30" rx="8" fill="#ecfdf5" stroke="#34d399" stroke-width="1.5"/>
+    <text x="90" y="58" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#047857" text-anchor="middle">Evaluator</text>
+
+    <g transform="translate(180, 42)">
+      <rect x="0" y="0" width="16" height="16" rx="3" fill="#10b981"/>
+      <text x="8" y="12" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+      <text x="25" y="12" font-family="Arial, sans-serif" font-size="10" fill="#047857">每个条件可测试</text>
+
+      <rect x="0" y="24" width="16" height="16" rx="3" fill="#10b981"/>
+      <text x="8" y="36" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+      <text x="25" y="36" font-family="Arial, sans-serif" font-size="10" fill="#047857">责任 specialist 明确</text>
+
+      <rect x="0" y="48" width="16" height="16" rx="3" fill="#10b981"/>
+      <text x="8" y="60" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+      <text x="25" y="60" font-family="Arial, sans-serif" font-size="10" fill="#047857">验收标准完整</text>
+    </g>
+  </g>
+
+  <!-- Arrow between steps -->
+  <path d="M 400 480 L 400 485" stroke="#6b7280" stroke-width="2" fill="none"/>
+  <polygon points="395,485 400,495 405,485" fill="#6b7280"/>
+
+  <!-- Step 4: Execute -->
+  <g transform="translate(25, 500)">
+    <rect x="0" y="0" width="750" height="140" rx="12" fill="url(#step4Grad)" stroke="#818cf8" stroke-width="2"/>
+    <circle cx="30" cy="25" r="18" fill="#818cf8"/>
+    <text x="30" y="30" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">4</text>
+    <text x="60" y="25" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#4338ca">开始执行</text>
+
+    <rect x="50" y="40" width="80" height="35" rx="8" fill="#f0f4ff" stroke="#a5b4fc" stroke-width="1.5"/>
+    <text x="90" y="60" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#4338ca" text-anchor="middle">Generator</text>
+
+    <path d="M 130 52 L 198 38" stroke="#6b7280" stroke-width="1.5" fill="none"/>
+    <polygon points="196,32 206,37 196,42" fill="#6b7280"/>
+    <path d="M 130 57 L 198 67" stroke="#6b7280" stroke-width="1.5" fill="none"/>
+    <polygon points="196,61 206,67 196,73" fill="#6b7280"/>
+    <path d="M 130 62 L 198 97" stroke="#6b7280" stroke-width="1.5" fill="none"/>
+    <polygon points="196,91 206,97 196,103" fill="#6b7280"/>
+
+    <rect x="210" y="25" width="140" height="25" rx="6" fill="#dcfce7" stroke="#4ade80" stroke-width="1"/>
+    <text x="280" y="42" font-family="Arial, sans-serif" font-size="9" fill="#166534" text-anchor="middle">spawn(gameplay-dev)</text>
+
+    <rect x="210" y="55" width="140" height="25" rx="6" fill="#dbeafe" stroke="#60a5fa" stroke-width="1"/>
+    <text x="280" y="72" font-family="Arial, sans-serif" font-size="9" fill="#1e40af" text-anchor="middle">spawn(graphics-dev)</text>
+
+    <rect x="210" y="85" width="140" height="25" rx="6" fill="#fef3c7" stroke="#fbbf24" stroke-width="1"/>
+    <text x="280" y="102" font-family="Arial, sans-serif" font-size="9" fill="#92400e" text-anchor="middle">spawn(audio-dev)</text>
+
+    <g transform="translate(380, 35)">
+      <text x="0" y="15" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#4338ca">每个 specialist 收到:</text>
+      <text x="0" y="35" font-family="Arial, sans-serif" font-size="9" fill="#6b7280">- 具体任务描述</text>
+      <text x="0" y="52" font-family="Arial, sans-serif" font-size="9" fill="#6b7280">- 输入/输出边界</text>
+      <text x="0" y="69" font-family="Arial, sans-serif" font-size="9" fill="#6b7280">- 可测试标准</text>
+      <text x="0" y="86" font-family="Arial, sans-serif" font-size="9" fill="#6b7280">- 与其他 specialist 的接口</text>
+    </g>
+  </g>
+</svg>
