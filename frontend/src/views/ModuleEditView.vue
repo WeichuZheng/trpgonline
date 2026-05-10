@@ -135,7 +135,10 @@
 
           <div class="template-list">
             <div v-for="tpl in characterTemplates" :key="tpl.id" class="template-item" :class="{ enemy: tpl.is_enemy }">
-              <div class="template-icon">{{ tpl.is_enemy ? '👹' : '🧑' }}</div>
+              <div class="template-icon">
+                <img v-if="tpl.avatar" :src="tpl.avatar" class="template-avatar-img" />
+                <span v-else>{{ tpl.is_enemy ? '👹' : '🧑' }}</span>
+              </div>
               <div class="template-info">
                 <span class="template-name">{{ tpl.name }}</span>
                 <span class="template-stats">HP {{ tpl.hp }}/{{ tpl.max_hp }} | SAN {{ tpl.san ?? 50 }}{{ tpl.profession ? ' | ' + tpl.profession : '' }}</span>
@@ -180,6 +183,83 @@
               </div>
             </details>
             <AppInput v-model="templateForm.notes" label="备注" placeholder="可选" style="margin-top:12px"></AppInput>
+
+            <!-- Skills -->
+            <details class="template-section-details" style="margin-top:12px" open>
+              <summary class="template-section-summary">专长 ({{ templateSkills.length }})</summary>
+              <div class="template-section-body">
+                <div v-for="(skill, i) in templateSkills" :key="i" class="tpl-skill-row">
+                  <span class="tpl-skill-name">{{ skill.name }}</span>
+                  <span class="tpl-skill-value">{{ skill.value }}</span>
+                  <span class="tpl-skill-attr">[{{ ATTR_MAP[skill.attribute] || skill.attribute }}]</span>
+                  <span v-if="skill.is_career" class="tpl-skill-career" title="职业专长">⭐</span>
+                  <button type="button" class="tpl-remove-btn" @click="templateSkills.splice(i, 1)">✕</button>
+                </div>
+                <div class="tpl-add-row">
+                  <input v-model="tplNewSkillName" class="tpl-add-input" placeholder="专长名称" />
+                  <input v-model.number="tplNewSkillValue" class="tpl-add-input tpl-add-sm" type="number" placeholder="数值" :min="0" :max="80" />
+                  <select v-model="tplNewSkillAttr" class="tpl-add-select">
+                    <option value="strength">力量</option>
+                    <option value="constitution">体质</option>
+                    <option value="dexterity">敏捷</option>
+                    <option value="intelligence">智力</option>
+                    <option value="willpower">意志</option>
+                    <option value="charisma">魅力</option>
+                  </select>
+                  <label class="tpl-checkbox-sm"><input type="checkbox" v-model="tplNewSkillCareer" /> 职业</label>
+                  <button type="button" class="tpl-add-btn" :disabled="!tplNewSkillName.trim()" @click="addTplSkill">+</button>
+                </div>
+              </div>
+            </details>
+
+            <!-- Items -->
+            <details class="template-section-details" style="margin-top:8px">
+              <summary class="template-section-summary">随身物品 ({{ templateItems.length }})</summary>
+              <div class="template-section-body">
+                <div v-for="(item, i) in templateItems" :key="i" class="tpl-item-row">
+                  <span class="tpl-item-icon">{{ item.type === 'weapon' ? '🗡' : item.type === 'tool' ? '🔧' : '📦' }}</span>
+                  <span class="tpl-item-name">{{ item.name }}</span>
+                  <span v-if="item.detail" class="tpl-item-detail">{{ item.detail }}</span>
+                  <button type="button" class="tpl-remove-btn" @click="templateItems.splice(i, 1)">✕</button>
+                </div>
+                <div class="tpl-add-row">
+                  <input v-model="tplNewItemName" class="tpl-add-input" placeholder="物品名称" />
+                  <select v-model="tplNewItemType" class="tpl-add-select">
+                    <option value="weapon">武器</option>
+                    <option value="tool">工具</option>
+                    <option value="other">其他</option>
+                  </select>
+                  <input v-model="tplNewItemDetail" class="tpl-add-input tpl-add-sm" placeholder="详情" />
+                  <button type="button" class="tpl-add-btn" :disabled="!tplNewItemName.trim()" @click="addTplItem">+</button>
+                </div>
+              </div>
+            </details>
+
+            <!-- Spells -->
+            <details class="template-section-details" style="margin-top:8px">
+              <summary class="template-section-summary">法术 ({{ templateSpells.length }})</summary>
+              <div class="template-section-body">
+                <div v-for="(spell, i) in templateSpells" :key="i" class="tpl-spell-row">
+                  <span class="tpl-spell-icon">{{ spell.level === '日常级' ? '✨' : spell.level === '简单级' ? '🔥' : spell.level === '中等级' ? '⚡' : spell.level === '困难级' ? '🔮' : '🌟' }}</span>
+                  <span class="tpl-spell-name">{{ spell.name }}</span>
+                  <span class="tpl-spell-level">{{ spell.level }}</span>
+                  <span class="tpl-spell-cost">{{ spell.mp_cost }}MP</span>
+                  <button type="button" class="tpl-remove-btn" @click="templateSpells.splice(i, 1)">✕</button>
+                </div>
+                <div class="tpl-add-row">
+                  <input v-model="tplNewSpellName" class="tpl-add-input" placeholder="法术名称" />
+                  <select v-model="tplNewSpellLevel" class="tpl-add-select">
+                    <option value="日常级">日常级</option>
+                    <option value="简单级">简单级</option>
+                    <option value="中等级">中等级</option>
+                    <option value="困难级">困难级</option>
+                    <option value="传说级">传说级</option>
+                  </select>
+                  <input v-model.number="tplNewSpellCost" class="tpl-add-input tpl-add-sm" type="number" placeholder="MP" :min="0" />
+                  <button type="button" class="tpl-add-btn" :disabled="!tplNewSpellName.trim()" @click="addTplSpell">+</button>
+                </div>
+              </div>
+            </details>
             <div class="form-group">
               <label class="checkbox-label">
                 <input type="checkbox" v-model="templateForm.is_enemy" />
@@ -304,6 +384,21 @@ const templateFormAttrs = reactive({
   strength: 50, constitution: 50, dexterity: 50,
   intelligence: 50, willpower: 50, charisma: 50
 })
+
+// Skills/Items/Spells for template form
+const templateSkills = ref([])
+const templateItems = ref([])
+const templateSpells = ref([])
+const tplNewSkillName = ref('')
+const tplNewSkillValue = ref(10)
+const tplNewSkillAttr = ref('strength')
+const tplNewSkillCareer = ref(false)
+const tplNewItemName = ref('')
+const tplNewItemType = ref('weapon')
+const tplNewItemDetail = ref('')
+const tplNewSpellName = ref('')
+const tplNewSpellLevel = ref('简单级')
+const tplNewSpellCost = ref(0)
 
 const ATTR_MAP = {
   strength: '力量', constitution: '体质', dexterity: '敏捷',
@@ -527,9 +622,15 @@ function openTemplateForm(tpl = null) {
     } catch {
       Object.assign(templateFormAttrs, { strength: 50, constitution: 50, dexterity: 50, intelligence: 50, willpower: 50, charisma: 50 })
     }
+    try { templateSkills.value = JSON.parse(tpl.skills || '[]') } catch { templateSkills.value = [] }
+    try { templateItems.value = JSON.parse(tpl.items || '[]') } catch { templateItems.value = [] }
+    try { templateSpells.value = JSON.parse(tpl.spells || '[]') } catch { templateSpells.value = [] }
   } else {
     Object.assign(templateForm, { name: '', avatar: '', profession: '', hp: 10, max_hp: 10, san: 50, mp: 0, max_mp: 0, notes: '', is_enemy: false })
     Object.assign(templateFormAttrs, { strength: 50, constitution: 50, dexterity: 50, intelligence: 50, willpower: 50, charisma: 50 })
+    templateSkills.value = []
+    templateItems.value = []
+    templateSpells.value = []
   }
   showTemplateForm.value = true
 }
@@ -542,9 +643,9 @@ async function handleSaveTemplate() {
     const data = {
       ...templateForm,
       attributes: JSON.stringify({ ...templateFormAttrs }),
-      skills: '[]',
-      items: '[]',
-      spells: '[]'
+      skills: JSON.stringify(templateSkills.value),
+      items: JSON.stringify(templateItems.value),
+      spells: JSON.stringify(templateSpells.value)
     }
     if (editingTemplate.value) {
       await characterTemplateService.updateTemplate(editingTemplate.value.id, data)
@@ -559,6 +660,41 @@ async function handleSaveTemplate() {
   } finally {
     loading.value = false
   }
+}
+
+function addTplSkill() {
+  if (!tplNewSkillName.value.trim()) return
+  templateSkills.value.push({
+    name: tplNewSkillName.value.trim(),
+    value: tplNewSkillValue.value || 10,
+    attribute: tplNewSkillAttr.value,
+    is_career: tplNewSkillCareer.value
+  })
+  tplNewSkillName.value = ''
+  tplNewSkillValue.value = 10
+  tplNewSkillCareer.value = false
+}
+
+function addTplItem() {
+  if (!tplNewItemName.value.trim()) return
+  templateItems.value.push({
+    name: tplNewItemName.value.trim(),
+    type: tplNewItemType.value,
+    detail: tplNewItemDetail.value.trim()
+  })
+  tplNewItemName.value = ''
+  tplNewItemDetail.value = ''
+}
+
+function addTplSpell() {
+  if (!tplNewSpellName.value.trim()) return
+  templateSpells.value.push({
+    name: tplNewSpellName.value.trim(),
+    level: tplNewSpellLevel.value,
+    mp_cost: tplNewSpellCost.value || 0
+  })
+  tplNewSpellName.value = ''
+  tplNewSpellCost.value = 0
 }
 
 function confirmDeleteTemplate(tpl) {
@@ -742,4 +878,51 @@ async function handleDeleteTemplate() {
 .form-row-label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
 
 p { color: var(--text-secondary); }
+
+/* ====== Template avatar ====== */
+.template-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* ====== Template skills/items/spells sections ====== */
+.template-section-details { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 8px 12px; }
+.template-section-summary { font-size: 13px; color: var(--text-muted); cursor: pointer; font-weight: 600; }
+.template-section-body { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+
+.tpl-skill-row, .tpl-item-row, .tpl-spell-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.tpl-skill-name, .tpl-item-name, .tpl-spell-name { font-size: 13px; color: var(--text-primary); }
+.tpl-skill-value { font-size: 13px; font-weight: 600; color: var(--text-secondary); min-width: 20px; }
+.tpl-skill-attr { font-size: 11px; color: var(--text-muted); background: var(--bg-secondary); padding: 0 4px; border-radius: 3px; }
+.tpl-skill-career { font-size: 11px; }
+.tpl-item-icon, .tpl-spell-icon { font-size: 13px; }
+.tpl-item-detail { font-size: 12px; color: var(--text-muted); flex: 1; }
+.tpl-spell-level { font-size: 11px; color: var(--text-muted); }
+.tpl-spell-cost { font-size: 11px; color: #a855f7; }
+
+.tpl-remove-btn {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 12px; padding: 2px 4px; transition: color 0.15s;
+}
+.tpl-remove-btn:hover { color: var(--color-danger); }
+
+.tpl-add-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.tpl-add-input {
+  padding: 4px 8px; font-size: 12px; font-family: var(--font-body);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: var(--bg-input); color: var(--text-primary); outline: none;
+}
+.tpl-add-input:focus { border-color: var(--border-focus); }
+.tpl-add-sm { width: 52px; }
+.tpl-add-select {
+  padding: 4px 6px; font-size: 12px; font-family: var(--font-body);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: var(--bg-input); color: var(--text-primary); outline: none;
+}
+.tpl-add-btn {
+  padding: 4px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+  font-size: 13px; font-family: var(--font-body); transition: all 0.15s;
+}
+.tpl-add-btn:hover:not(:disabled) { border-color: var(--accent-gold); color: var(--accent-gold); }
+.tpl-add-btn:disabled { opacity: 0.4; cursor: default; }
+.tpl-checkbox-sm { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.tpl-checkbox-sm input { accent-color: var(--accent-gold); }
 </style>

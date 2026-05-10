@@ -358,7 +358,7 @@ function spellIcon(level) {
 .sheet-header {
   display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
 }
-.sheet-icon { font-size: 14px; flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; }
+.sheet-icon { font-size: 14px; flex-shrink: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; }
 .sheet-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .sheet-title { flex: 1; display: flex; flex-direction: column; gap: 1px; }
 .sheet-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }

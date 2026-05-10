@@ -170,15 +170,16 @@ function drawUnit(unit) {
 
   // Name above token
   const nameY = y - 6 / scale.value
-  ctx.fillStyle = '#fff'
+  ctx.fillStyle = '#000'
   ctx.font = `bold ${11 / scale.value}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'bottom'
-  // Text shadow for readability
-  ctx.shadowColor = 'rgba(0,0,0,0.8)'
-  ctx.shadowBlur = 3 / scale.value
+  // White outline for readability on any background
+  ctx.strokeStyle = '#fff'
+  ctx.lineWidth = 2.5 / scale.value
+  ctx.lineJoin = 'round'
+  ctx.strokeText(unit.name, cx, nameY)
   ctx.fillText(unit.name, cx, nameY)
-  ctx.shadowBlur = 0
 
   // Circle clip + avatar
   ctx.save()

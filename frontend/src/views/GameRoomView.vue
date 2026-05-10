@@ -18,7 +18,7 @@
 
     <!-- ====== 叙事模式：三栏布局 ====== -->
     <div v-if="!battleMode" class="game-content narrative-mode">
-      <div class="game-left">
+      <div class="game-left" :style="{ width: leftPanelWidth + 'px', flexShrink: 0 }">
         <AppCard title="角色">
           <div class="character-list">
             <CharacterSheet
@@ -57,7 +57,10 @@
             <!-- 模板快速添加 -->
             <div v-if="addCharSource === 'template'" class="add-template-list">
               <button v-for="tpl in characterTemplates" :key="tpl.id" class="add-template-btn" @click="addCharFromTemplate(tpl)">
-                <span class="tpl-icon">{{ tpl.is_enemy ? '&#x1F47E;' : '&#x1F9D1;' }}</span>
+                <span class="tpl-icon">
+                  <img v-if="tpl.avatar" :src="tpl.avatar" class="tpl-avatar-img" />
+                  <span v-else>{{ tpl.is_enemy ? '&#x1F47E;' : '&#x1F9D1;' }}</span>
+                </span>
                 <span class="tpl-name">{{ tpl.name }}</span>
                 <span v-if="tpl.profession" class="tpl-prof">{{ tpl.profession }}</span>
                 <span class="tpl-stats">HP{{ tpl.max_hp }}</span>
@@ -108,6 +111,8 @@
         </AppCard>
       </div>
 
+      <div class="resize-handle" @mousedown="startResizeLeft"></div>
+
       <div class="game-center">
         <AppCard title="资源" class="resource-card-wrap">
           <div class="resource-grid">
@@ -146,7 +151,7 @@
     <!-- ====== 战斗模式：地图全屏 + 可折叠侧栏 ====== -->
     <div v-else class="game-content battle-mode">
       <!-- 左侧面板：角色 -->
-      <div class="sidebar-left" :class="{ collapsed: leftCollapsed }">
+      <div class="sidebar-left" :class="{ collapsed: leftCollapsed }" :style="!leftCollapsed ? { width: leftPanelWidth + 'px' } : {}">
         <button class="sidebar-toggle" @click="leftCollapsed = !leftCollapsed">
           {{ leftCollapsed ? '→' : '←' }}
         </button>
@@ -179,6 +184,7 @@
             </div>
           </AppCard>
         </div>
+        <div v-if="!leftCollapsed" class="resize-handle-vertical" @mousedown="startResizeLeft"></div>
       </div>
 
       <!-- 中间：地图画布 -->
@@ -337,6 +343,8 @@ const editingCharacter = ref(null)
 const battleMode = ref(false)
 const leftCollapsed = ref(false)
 const rightCollapsed = ref(false)
+const leftPanelWidth = ref(260)
+const isResizingLeft = ref(false)
 const showTokenForm = ref(false)
 const mapCanvasRef = ref(null)
 const moduleMaps = ref([])
@@ -761,7 +769,7 @@ async function placeCharOnMap(char) {
       hp: char.hp,
       max_hp: char.max_hp,
       is_enemy: char.is_npc,
-      icon: char.avatar || char.name.charAt(0)
+      icon: char.avatar || null
     })
     gameStore.addMapUnit(unit)
     if (ws?.readyState === WebSocket.OPEN) {
@@ -902,6 +910,24 @@ async function leaveRoom() {
     router.push('/rooms')
   }
 }
+
+function startResizeLeft(e) {
+  e.preventDefault()
+  isResizingLeft.value = true
+  const startX = e.clientX
+  const startWidth = leftPanelWidth.value
+  function onMove(ev) {
+    const delta = ev.clientX - startX
+    leftPanelWidth.value = Math.max(180, Math.min(600, startWidth + delta))
+  }
+  function onUp() {
+    isResizingLeft.value = false
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
 </script>
 
 <style scoped>
@@ -996,9 +1022,8 @@ async function leaveRoom() {
 
 /* ====== 叙事模式三栏 ====== */
 .narrative-mode {
-  display: grid;
-  grid-template-columns: 240px 1fr 300px;
-  gap: 12px;
+  display: flex;
+  gap: 0;
   padding: 12px;
   flex: 1;
   overflow: hidden;
@@ -1108,6 +1133,25 @@ async function leaveRoom() {
 /* ====== 角色列表 ====== */
 .game-left { overflow-y: auto; }
 
+.resize-handle {
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  margin: 0 4px;
+}
+.resize-handle:hover { background: var(--accent-gold-dim, rgba(212, 168, 83, 0.3)); }
+
+.resize-handle-vertical {
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.resize-handle-vertical:hover { background: var(--accent-gold-dim, rgba(212, 168, 83, 0.3)); }
+
 .character-list { display: flex; flex-direction: column; gap: 8px; }
 .character-list.compact { gap: 4px; }
 
@@ -1198,7 +1242,8 @@ async function leaveRoom() {
 }
 .add-template-btn:hover { border-color: var(--accent-gold); background: rgba(212, 168, 83, 0.06); }
 
-.tpl-icon { font-size: 14px; }
+.tpl-icon { font-size: 14px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.tpl-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .tpl-name { flex: 1; font-weight: 500; color: var(--text-primary); }
 .tpl-prof { font-size: 11px; color: var(--text-muted); background: var(--bg-secondary); padding: 0 4px; border-radius: 3px; }
 .tpl-stats { font-size: 11px; color: var(--text-muted); }
@@ -1258,7 +1303,7 @@ async function leaveRoom() {
 .stat-line { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
 
 /* ====== 资源 ====== */
-.game-center { overflow-y: auto; min-width: 0; }
+.game-center { overflow-y: auto; min-width: 0; flex: 1; }
 .resource-card-wrap { height: 100%; display: flex; flex-direction: column; }
 .resource-card-wrap :deep(.card-body) { flex: 1; overflow-y: auto; }
 
@@ -1290,7 +1335,7 @@ async function leaveRoom() {
 .text-resource p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
 
 /* ====== 右侧：掷骰+日志 ====== */
-.game-right { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.game-right { display: flex; flex-direction: column; gap: 16px; min-height: 0; width: 300px; flex-shrink: 0; }
 
 /* ====== Token 表单 ====== */
 .token-form-row { margin: 8px 0; }
