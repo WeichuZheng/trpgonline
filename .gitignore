@@ -59,3 +59,18 @@ Thumbs.db
 .claude/
 .agents/
 skills-lock.json
+
+# 测试相关
+test/
+.env.test
+.pytest_cache/
+htmlcov/
+.coverage
+*.mp4
+*.webm
+
+# Node
+node_modules/
+
+# 文档归档
+docs/archive/

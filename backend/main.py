@@ -1,22 +1,22 @@
 # TRPG Online - 主应用入口
+import traceback
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
 from backend.database import init_db
-from backend.api import auth, modules, resources, rooms, characters, maps
+from backend.api import auth, modules, resources, rooms, maps
 from backend.websocket import websocket_endpoint
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化数据库
     await init_db()
     yield
-    # 关闭时清理资源（如果需要）
 
 
 # 创建 FastAPI 应用
@@ -30,10 +30,21 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局异常处理器：输出完整堆栈到终端，返回 500"""
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)}
+    )
+
+
 # 配置 CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 开发环境允许所有来源
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,8 +54,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(modules.router)
 app.include_router(resources.router)
-app.include_router(rooms.router)
-app.include_router(characters.router)
+app.include_router(rooms.rooms_list_router)
+app.include_router(rooms.rooms_router)
 app.include_router(maps.router)
 
 # WebSocket 端点
@@ -52,21 +63,6 @@ app.websocket("/ws/room/{room_id}")(websocket_endpoint)
 
 # 挂载静态文件目录
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
-
-@app.get("/")
-async def root():
-    """根路径 - 返回前端页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse("frontend/index.html")
-
-
-@app.get("/index.html")
-async def index():
-    """前端入口页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse("frontend/index.html")
 
 
 @app.get("/health")

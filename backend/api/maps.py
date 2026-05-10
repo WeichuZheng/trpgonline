@@ -34,6 +34,7 @@ async def get_module_maps(
 async def create_map(
     module_id: int,
     name: str = Form(...),
+    grid_size: str = Form(None),
     file: UploadFile = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -56,17 +57,20 @@ async def create_map(
         if ext not in allowed:
             raise HTTPException(status_code=400, detail="不支持的图片格式")
 
-        filename = f"{uuid.uuid.uuid4()}{ext}"
+        filename = f"{uuid.uuid4()}{ext}"
         file_path = os.path.join(settings.upload_dir, filename)
         content = await file.read()
         with open(file_path, 'wb') as f:
             f.write(content)
         image_url = f"/uploads/{filename}"
 
+    parsed_grid_size = float(grid_size) if grid_size else None
+
     new_map = Map(
         module_id=module_id,
         name=name,
-        image_url=image_url
+        image_url=image_url,
+        grid_size=parsed_grid_size
     )
     db.add(new_map)
     await db.commit()
@@ -118,6 +122,8 @@ async def update_map(
         map_data_obj.name = map_data.name
     if map_data.image_url is not None:
         map_data_obj.image_url = map_data.image_url
+    if map_data.grid_size is not None:
+        map_data_obj.grid_size = map_data.grid_size
 
     await db.commit()
     await db.refresh(map_data_obj)
@@ -166,9 +172,12 @@ async def create_map_unit(
 
     new_unit = MapUnit(
         map_id=map_id,
+        character_id=unit_data.character_id,
         name=unit_data.name,
         x=unit_data.x,
         y=unit_data.y,
+        width=unit_data.width,
+        height=unit_data.height,
         hp=unit_data.hp,
         max_hp=unit_data.max_hp,
         is_enemy=unit_data.is_enemy,
@@ -203,10 +212,16 @@ async def update_map_unit(
 
     if unit_data.name is not None:
         unit.name = unit_data.name
+    if unit_data.character_id is not None:
+        unit.character_id = unit_data.character_id
     if unit_data.x is not None:
         unit.x = unit_data.x
     if unit_data.y is not None:
         unit.y = unit_data.y
+    if unit_data.width is not None:
+        unit.width = unit_data.width
+    if unit_data.height is not None:
+        unit.height = unit_data.height
     if unit_data.hp is not None:
         unit.hp = unit_data.hp
     if unit_data.max_hp is not None:

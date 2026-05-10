@@ -41,6 +41,8 @@ class Token(BaseModel):
 class ModuleBase(BaseModel):
     title: str
     description: Optional[str] = None
+    max_characters: Optional[int] = 20
+    default_max_players: Optional[int] = 8
 
 
 class ModuleCreate(ModuleBase):
@@ -63,6 +65,8 @@ class ModuleResponse(ModuleBase):
 
 class ModuleWithOwner(ModuleResponse):
     owner_username: Optional[str] = None
+    max_characters: int = 20
+    default_max_players: int = 8
 
 
 # ============ 资源 schemas ============
@@ -95,7 +99,7 @@ class ResourceUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     display_type: Optional[DisplayTypeEnum] = None
-    is_visible: Optional[bool] = None
+    default_visible: Optional[bool] = None
 
 
 class ResourceResponse(ResourceBase):
@@ -103,7 +107,7 @@ class ResourceResponse(ResourceBase):
     module_id: int
     owner_id: int
     content: Optional[str]
-    is_visible: bool
+    default_visible: bool
     created_at: datetime
 
     class Config:
@@ -111,7 +115,13 @@ class ResourceResponse(ResourceBase):
 
 
 class ResourceToggleVisible(BaseModel):
-    is_visible: bool
+    default_visible: bool
+
+
+# ============ 房间资源可见性 schemas ============
+
+class RoomResourceToggle(BaseModel):
+    is_shown: bool
 
 
 # ============ 房间 schemas ============
@@ -129,6 +139,7 @@ class RoomRoleEnum(str, Enum):
 
 class RoomBase(BaseModel):
     name: str
+    max_players: Optional[int] = None
 
 
 class RoomCreate(RoomBase):
@@ -136,20 +147,29 @@ class RoomCreate(RoomBase):
     pass
 
 
+class RoomUpdate(BaseModel):
+    name: Optional[str] = None
+
+
 class RoomResponse(RoomBase):
     id: int
     module_id: int
     gm_id: int
     status: RoomStatusEnum
+    active_map_id: Optional[int] = None
     created_at: datetime
+    # 额外字段
+    module_title: Optional[str] = None
+    gm_username: Optional[str] = None
+    current_players: Optional[int] = None
+    max_players: int = 8
 
     class Config:
         from_attributes = True
 
 
 class RoomWithDetails(RoomResponse):
-    module_title: Optional[str] = None
-    gm_username: Optional[str] = None
+    # 继承 RoomResponse 的所有字段，包括 module_title, gm_username, current_players, max_players
     participants: List["ParticipantResponse"] = []
 
 
@@ -167,30 +187,58 @@ class ParticipantResponse(BaseModel):
 
 class CharacterCardBase(BaseModel):
     name: str
+    avatar: Optional[str] = None
+    profession: Optional[str] = None
     hp: int = 10
     max_hp: int = 10
-    attack_bonus: int = 0
-    damage_dice: str = "1d6"
+    san: int = 50
+    mp: int = 0
+    max_mp: int = 0
+    attributes: str = "{}"
+    skills: str = "[]"
+    items: str = "[]"
+    spells: str = "[]"
     notes: Optional[str] = None
 
 
 class CharacterCardCreate(CharacterCardBase):
-    room_id: int
+    is_npc: bool = False
 
 
 class CharacterCardUpdate(BaseModel):
     name: Optional[str] = None
+    avatar: Optional[str] = None
+    profession: Optional[str] = None
     hp: Optional[int] = None
     max_hp: Optional[int] = None
-    attack_bonus: Optional[int] = None
-    damage_dice: Optional[str] = None
+    san: Optional[int] = None
+    mp: Optional[int] = None
+    max_mp: Optional[int] = None
+    attributes: Optional[str] = None
+    skills: Optional[str] = None
+    items: Optional[str] = None
+    spells: Optional[str] = None
     notes: Optional[str] = None
+    is_npc: Optional[bool] = None
 
 
-class CharacterCardResponse(CharacterCardBase):
+class CharacterCardResponse(BaseModel):
     id: int
     room_id: int
-    user_id: int
+    name: str
+    avatar: Optional[str] = None
+    profession: Optional[str] = None
+    hp: int
+    max_hp: int
+    san: int
+    mp: int
+    max_mp: int
+    attributes: str = "{}"
+    skills: str = "[]"
+    items: str = "[]"
+    spells: str = "[]"
+    notes: Optional[str] = None
+    is_npc: bool = False
     created_at: datetime
 
     class Config:
@@ -202,20 +250,24 @@ class CharacterCardResponse(CharacterCardBase):
 class MapBase(BaseModel):
     name: str
     image_url: Optional[str] = None
+    grid_size: Optional[float] = None
 
 
 class MapCreate(MapBase):
     module_id: int
+    grid_size: Optional[float] = None
 
 
 class MapUpdate(BaseModel):
     name: Optional[str] = None
     image_url: Optional[str] = None
+    grid_size: Optional[float] = None
 
 
 class MapResponse(MapBase):
     id: int
     module_id: int
+    grid_size: Optional[float] = None
     created_at: datetime
 
     class Config:
@@ -228,8 +280,11 @@ class MapWithUnits(MapResponse):
 
 class MapUnitBase(BaseModel):
     name: str
+    character_id: Optional[int] = None
     x: float
     y: float
+    width: float = 1.0
+    height: float = 1.0
     hp: Optional[int] = None
     max_hp: Optional[int] = None
     is_enemy: bool = False
@@ -237,13 +292,17 @@ class MapUnitBase(BaseModel):
 
 
 class MapUnitCreate(MapUnitBase):
-    map_id: int
+    # map_id comes from URL path, not request body
+    pass
 
 
 class MapUnitUpdate(BaseModel):
     name: Optional[str] = None
+    character_id: Optional[int] = None
     x: Optional[float] = None
     y: Optional[float] = None
+    width: Optional[float] = None
+    height: Optional[float] = None
     hp: Optional[int] = None
     max_hp: Optional[int] = None
     is_enemy: Optional[bool] = None
@@ -294,17 +353,18 @@ class GameLogResponse(GameLogBase):
 # ============ 掷骰子 schemas ============
 
 class DiceRollRequest(BaseModel):
-    room_id: int
     dice: str = "1d20"  # 默认 d20
     reason: Optional[str] = None
+    character_name: Optional[str] = None
 
 
 class DiceRollResponse(BaseModel):
     dice: str
     result: int
-    details: str  # 如 "3d6: [2, 4, 1] = 7"
+    details: str  # 如 "角色名 掷出 2d6+1 = [2, 4]+1 = 7"
     reason: Optional[str]
     rolled_by: str
+    character_name: Optional[str] = None
     timestamp: datetime
 
 
@@ -324,6 +384,60 @@ class AttackResponse(BaseModel):
     total_damage: int
     target_name: Optional[str]
     log: GameLogResponse
+
+
+class ActiveMapRequest(BaseModel):
+    map_id: Optional[int] = None
+
+
+# ============ 角色模板 schemas ============
+
+class CharacterTemplateBase(BaseModel):
+    name: str
+    avatar: Optional[str] = None
+    profession: Optional[str] = None
+    hp: int = 10
+    max_hp: int = 10
+    san: int = 50
+    mp: int = 0
+    max_mp: int = 0
+    attributes: str = "{}"
+    skills: str = "[]"
+    items: str = "[]"
+    spells: str = "[]"
+    notes: Optional[str] = None
+    is_enemy: bool = False
+
+
+class CharacterTemplateCreate(CharacterTemplateBase):
+    # module_id comes from URL path, not request body
+    pass
+
+
+class CharacterTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+    profession: Optional[str] = None
+    hp: Optional[int] = None
+    max_hp: Optional[int] = None
+    san: Optional[int] = None
+    mp: Optional[int] = None
+    max_mp: Optional[int] = None
+    attributes: Optional[str] = None
+    skills: Optional[str] = None
+    items: Optional[str] = None
+    spells: Optional[str] = None
+    notes: Optional[str] = None
+    is_enemy: Optional[bool] = None
+
+
+class CharacterTemplateResponse(CharacterTemplateBase):
+    id: int
+    module_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # 更新前向引用

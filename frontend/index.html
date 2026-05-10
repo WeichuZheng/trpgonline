@@ -1,145 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>跑团在线 - TRPG Online</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <link rel="stylesheet" href="/static/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>跑团在线 - TRPG Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="app">
-        <!-- 导航栏 -->
-        <nav class="navbar" v-if="currentView !== 'login' && currentView !== 'register'">
-            <div class="nav-brand">🎭 跑团在线</div>
-            <div class="nav-user">
-                <span>{{ currentUser?.username }}</span>
-                <button @click="logout">退出</button>
-            </div>
-        </nav>
-
-        <!-- 登录页面 -->
-        <div v-if="currentView === 'login'" class="auth-container">
-            <div class="auth-box">
-                <h1>登录</h1>
-                <form @submit.prevent="login">
-                    <input v-model="loginForm.username" type="text" placeholder="用户名" required>
-                    <input v-model="loginForm.password" type="password" placeholder="密码" required>
-                    <button type="submit">登录</button>
-                </form>
-                <p>还没有账号？ <a @click="currentView = 'register'">注册</a></p>
-            </div>
-        </div>
-
-        <!-- 注册页面 -->
-        <div v-if="currentView === 'register'" class="auth-container">
-            <div class="auth-box">
-                <h1>注册</h1>
-                <form @submit.prevent="register">
-                    <input v-model="registerForm.username" type="text" placeholder="用户名" required>
-                    <input v-model="registerForm.password" type="password" placeholder="密码" required>
-                    <label class="checkbox-label">
-                        <input v-model="registerForm.can_create_module" type="checkbox">
-                        申请成为 GM（可创建模组）
-                    </label>
-                    <button type="submit">注册</button>
-                </form>
-                <p>已有账号？ <a @click="currentView = 'login'">登录</a></p>
-            </div>
-        </div>
-
-        <!-- 仪表盘 - 我的模组 -->
-        <div v-if="currentView === 'dashboard'" class="dashboard">
-            <h2>我的模组</h2>
-            <button class="btn-primary" @click="createModule">+ 创建新模组</button>
-
-            <div class="module-list">
-                <div v-for="module in modules" :key="module.id" class="module-card">
-                    <h3>{{ module.title }}</h3>
-                    <p>{{ module.description || '暂无描述' }}</p>
-                    <div class="module-actions">
-                        <button @click="openModule(module)">管理</button>
-                        <button @click="createRoom(module)">创建房间</button>
-                    </div>
-                </div>
-                <div v-if="modules.length === 0" class="empty-state">
-                    暂无模组，点击上方按钮创建
-                </div>
-            </div>
-        </div>
-
-        <!-- 模组管理页面 -->
-        <div v-if="currentView === 'module-edit'" class="module-edit">
-            <div class="module-edit-header">
-                <button @click="currentView = 'dashboard'">← 返回</button>
-                <h2>{{ currentModule?.title }}</h2>
-            </div>
-
-            <div class="module-edit-content">
-                <!-- 资源列表 -->
-                <div class="resources-section">
-                    <h3>资源管理</h3>
-                    <button class="btn-primary" @click="showResourceForm = true">+ 添加资源</button>
-
-                    <div class="resource-list">
-                        <div v-for="resource in resources" :key="resource.id" class="resource-item" :class="{ visible: resource.is_visible }">
-                            <span class="resource-title">{{ resource.title }}</span>
-                            <span class="resource-type">{{ resource.type === 'image' ? '🖼️ 图片' : '📝 文本' }}</span>
-                            <span class="resource-visibility" :class="resource.is_visible ? 'shown' : 'hidden'">
-                                {{ resource.is_visible ? '👁️ 已显示' : '🔒 已隐藏' }}
-                            </span>
-                            <button @click="toggleVisibility(resource)">
-                                {{ resource.is_visible ? '隐藏' : '显示' }}
-                            </button>
-                            <button @click="deleteResource(resource)">删除</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 添加资源表单 -->
-                <div v-if="showResourceForm" class="resource-form">
-                    <h3>添加资源</h3>
-                    <select v-model="newResource.type">
-                        <option value="text">文本</option>
-                        <option value="image">图片</option>
-                    </select>
-                    <input v-model="newResource.title" placeholder="标题">
-
-                    <div v-if="newResource.type === 'text'">
-                        <select v-model="newResource.display_type">
-                            <option value="story">背景故事</option>
-                            <option value="rule">规则说明</option>
-                            <option value="clue">线索卡</option>
-                            <option value="character">角色描述</option>
-                            <option value="mission">任务目标</option>
-                        </select>
-                        <textarea v-model="newResource.content" placeholder="文本内容" rows="6"></textarea>
-                    </div>
-
-                    <div v-if="newResource.type === 'image'">
-                        <input type="file" @change="handleFileSelect">
-                    </div>
-
-                    <button @click="createResource">保存</button>
-                    <button @click="showResourceForm = false">取消</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 房间列表 -->
-        <div v-if="currentView === 'rooms'" class="rooms-page">
-            <button @click="currentView = 'dashboard'">← 返回</button>
-            <h2>房间管理</h2>
-            <div class="room-list">
-                <div v-for="room in rooms" :key="room.id" class="room-card">
-                    <h4>{{ room.name }}</h4>
-                    <span :class="'status-' + room.status">{{ room.status }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="/static/js/app.js"></script>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -120,7 +120,7 @@ async def create_resource(
         title=title,
         content=file_url if type == ResourceTypeEnum.IMAGE else text_content,
         display_type=display_type.value,
-        is_visible=False
+        default_visible=False
     )
     db.add(new_resource)
     await db.commit()
@@ -155,8 +155,8 @@ async def update_resource(
         resource.content = resource_data.content
     if resource_data.display_type is not None:
         resource.display_type = resource_data.display_type.value
-    if resource_data.is_visible is not None:
-        resource.is_visible = resource_data.is_visible
+    if resource_data.default_visible is not None:
+        resource.default_visible = resource_data.default_visible
 
     await db.commit()
     await db.refresh(resource)
@@ -188,7 +188,7 @@ async def toggle_resource_visibility(
             detail="只有模组所有者可以控制资源可见性"
         )
 
-    resource.is_visible = toggle_data.is_visible
+    resource.default_visible = toggle_data.default_visible
     await db.commit()
     await db.refresh(resource)
     return resource

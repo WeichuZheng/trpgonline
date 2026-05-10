@@ -1,10 +1,16 @@
 # TRPG Online - 数据库模型
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import enum
 
 from backend.database import Base
+
+# UTC+8 中国标准时间
+CST = timezone(timedelta(hours=8))
+
+def cst_now():
+    return datetime.now(CST)
 
 
 class User(Base):
@@ -15,7 +21,7 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     can_create_module = Column(Boolean, default=False)  # 可创建模组的权限
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     modules = relationship("Module", back_populates="owner", cascade="all, delete-orphan")
@@ -31,14 +37,17 @@ class Module(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    max_characters = Column(Integer, default=20)  # 角色数上限（NPC+怪物）
+    default_max_players = Column(Integer, default=8)  # 默认玩家数上限
+    created_at = Column(DateTime, default=cst_now)
+    updated_at = Column(DateTime, default=cst_now, onupdate=cst_now)
 
     # 关系
     owner = relationship("User", back_populates="modules")
     resources = relationship("Resource", back_populates="module", cascade="all, delete-orphan")
     rooms = relationship("Room", back_populates="module", cascade="all, delete-orphan")
     maps = relationship("Map", back_populates="module", cascade="all, delete-orphan")
+    character_templates = relationship("CharacterTemplate", back_populates="module", cascade="all, delete-orphan")
 
 
 class ResourceType(enum.Enum):
@@ -58,12 +67,26 @@ class Resource(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=True)  # 文本内容或图片URL
     display_type = Column(String(50), default="story")  # 文本展示类型: story/rule/clue/character/mission
-    is_visible = Column(Boolean, default=False)  # 是否可见
-    created_at = Column(DateTime, default=datetime.utcnow)
+    default_visible = Column(Boolean, default=False)  # 模组编辑时的默认可见性
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     module = relationship("Module", back_populates="resources")
     owner = relationship("User", back_populates="resources")
+    room_resources = relationship("RoomResource", back_populates="resource", cascade="all, delete-orphan")
+
+
+class RoomResource(Base):
+    """房间资源可见性表"""
+    __tablename__ = "room_resources"
+
+    room_id = Column(Integer, ForeignKey("rooms.id"), primary_key=True)
+    resource_id = Column(Integer, ForeignKey("resources.id"), primary_key=True)
+    is_shown = Column(Boolean, default=False)  # 房间内当前是否显示给玩家
+
+    # 关系
+    room = relationship("Room", back_populates="room_resources")
+    resource = relationship("Resource", back_populates="room_resources")
 
 
 class RoomStatus(enum.Enum):
@@ -82,14 +105,18 @@ class Room(Base):
     gm_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String(100), nullable=False)
     status = Column(SQLEnum(RoomStatus), default=RoomStatus.WAITING)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    active_map_id = Column(Integer, ForeignKey("maps.id"), nullable=True)
+    max_players = Column(Integer, default=8)  # 玩家数上限
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     module = relationship("Module", back_populates="rooms")
     gm = relationship("User", back_populates="rooms_created")
+    active_map = relationship("Map", foreign_keys=[active_map_id])
     participants = relationship("RoomParticipant", back_populates="room", cascade="all, delete-orphan")
     characters = relationship("CharacterCard", back_populates="room", cascade="all, delete-orphan")
     logs = relationship("GameLog", back_populates="room", cascade="all, delete-orphan")
+    room_resources = relationship("RoomResource", back_populates="room", cascade="all, delete-orphan")
 
 
 class RoomParticipant(Base):
@@ -100,7 +127,7 @@ class RoomParticipant(Base):
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     role = Column(String(20), default="player")  # gm / player
     character_name = Column(String(100), nullable=True)
-    joined_at = Column(DateTime, default=datetime.utcnow)
+    joined_at = Column(DateTime, default=cst_now)
 
     # 关系
     room = relationship("Room", back_populates="participants")
@@ -113,18 +140,24 @@ class CharacterCard(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String(100), nullable=False)
+    avatar = Column(String(500), nullable=True)  # avatar image URL
+    profession = Column(String(50), nullable=True)  # 职业
     hp = Column(Integer, default=10)
     max_hp = Column(Integer, default=10)
-    attack_bonus = Column(Integer, default=0)  # 攻击加值
-    damage_dice = Column(String(20), default="1d6")  # 伤害骰子
+    san = Column(Integer, default=50)  # SAN 当前值（上限=意志值）
+    mp = Column(Integer, default=0)   # 魔力当前值
+    max_mp = Column(Integer, default=0)  # 魔力上限
+    attributes = Column(Text, default="{}")  # JSON: {"strength":50,"constitution":50,...}
+    skills = Column(Text, default="[]")      # JSON: [{"name":"格斗","value":20,"attribute":"strength","is_career":true},...]
+    items = Column(Text, default="[]")       # JSON: [{"name":"手枪","type":"weapon","detail":"1d8+2"},...]
+    spells = Column(Text, default="[]")      # JSON: [{"name":"火球术","level":"简单级","mp_cost":3},...]
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    is_npc = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     room = relationship("Room", back_populates="characters")
-    user = relationship("User")
 
 
 class Map(Base):
@@ -135,7 +168,8 @@ class Map(Base):
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
     name = Column(String(100), nullable=False)
     image_url = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    grid_size = Column(Float, nullable=True)  # 网格大小（地图像素）
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     module = relationship("Module", back_populates="maps")
@@ -148,17 +182,46 @@ class MapUnit(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     map_id = Column(Integer, ForeignKey("maps.id"), nullable=False)
+    character_id = Column(Integer, ForeignKey("character_cards.id"), nullable=True)
     name = Column(String(100), nullable=False)
     x = Column(Float, nullable=False)
     y = Column(Float, nullable=False)
+    width = Column(Float, default=1.0)  # token 宽度（网格单位）
+    height = Column(Float, default=1.0)  # token 高度（网格单位）
     hp = Column(Integer, nullable=True)
     max_hp = Column(Integer, nullable=True)
     is_enemy = Column(Boolean, default=False)
-    icon = Column(String(50), nullable=True)  # 图标标识
-    created_at = Column(DateTime, default=datetime.utcnow)
+    icon = Column(String(500), nullable=True)  # avatar image URL
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     map = relationship("Map", back_populates="units")
+
+
+class CharacterTemplate(Base):
+    """模组角色模板表"""
+    __tablename__ = "character_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    avatar = Column(String(500), nullable=True)  # avatar image URL
+    profession = Column(String(50), nullable=True)
+    hp = Column(Integer, default=10)
+    max_hp = Column(Integer, default=10)
+    san = Column(Integer, default=50)
+    mp = Column(Integer, default=0)
+    max_mp = Column(Integer, default=0)
+    attributes = Column(Text, default="{}")
+    skills = Column(Text, default="[]")
+    items = Column(Text, default="[]")
+    spells = Column(Text, default="[]")
+    notes = Column(Text, nullable=True)
+    is_enemy = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=cst_now)
+
+    # 关系
+    module = relationship("Module", back_populates="character_templates")
 
 
 class GameLog(Base):
@@ -170,7 +233,7 @@ class GameLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     action = Column(String(50), nullable=False)  # attack / damage / heal / move / dice / custom
     detail = Column(Text, nullable=True)  # JSON 格式的详细信息
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=cst_now)
 
     # 关系
     room = relationship("Room", back_populates="logs")
