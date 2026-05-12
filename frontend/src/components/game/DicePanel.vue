@@ -28,6 +28,13 @@
     </div>
 
     <div class="dice-section">
+      <div class="dice-label">常用预设</div>
+      <div class="preset-buttons">
+        <button v-for="p in presets" :key="p" class="preset-btn" @click="$emit('roll-preset', p)">{{ p }}</button>
+      </div>
+    </div>
+
+    <div class="dice-section">
       <div class="dice-label">表达式掷骰</div>
       <div class="expr-row">
         <input
@@ -65,7 +72,9 @@ const props = defineProps({
   compact: { type: Boolean, default: false }
 })
 
-defineEmits(['update:selectedCharacterId', 'update:selectedQuickDice', 'update:diceExpr', 'update:diceReason', 'roll-quick', 'roll-expr'])
+defineEmits(['update:selectedCharacterId', 'update:selectedQuickDice', 'update:diceExpr', 'update:diceReason', 'roll-quick', 'roll-expr', 'roll-preset'])
+
+const presets = ['1d20', '1d100', '1d6', '2d6', '1d8', '1d10']
 
 const gameStore = useGameStore()
 const diceResult = computed(() => gameStore.diceResult)
@@ -111,6 +120,26 @@ const diceResult = computed(() => gameStore.diceResult)
 
 .dice-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; }
 
+.preset-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.preset-btn {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border-default);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
 .expr-row { display: flex; gap: 6px; }
 
 .expr-input {
@@ -128,7 +157,7 @@ const diceResult = computed(() => gameStore.diceResult)
 
 .expr-input:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.08);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 .dice-result {

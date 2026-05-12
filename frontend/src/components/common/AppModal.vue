@@ -84,7 +84,7 @@ if (typeof window !== 'undefined') {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(212, 168, 83, 0.05);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(var(--accent-rgb), 0.05);
   max-height: 90vh;
   display: flex;
   flex-direction: column;

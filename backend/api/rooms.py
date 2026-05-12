@@ -10,23 +10,26 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 
 from backend.database import get_db
 from backend.models.models import (
     User, Module, Room, RoomParticipant, RoomStatus,
     RoomResource, Resource, CharacterCard, GameLog,
-    Map, MapUnit, CharacterTemplate
+    Map, MapUnit, CharacterTemplate, PlayerNote,
+    cst_now
 )
 from backend.websocket import manager as ws_manager
 from backend.schemas.schemas import (
     RoomCreate, RoomResponse, RoomWithDetails,
     ParticipantResponse, RoomRoleEnum, RoomResourceToggle,
-    RoomUpdate,
+    RoomUpdate, BlockToggleRequest,
     CharacterCardCreate, CharacterCardUpdate, CharacterCardResponse,
     DiceRollRequest, DiceRollResponse, AttackRequest, AttackResponse,
     LogActionEnum, GameLogResponse,
     MapWithUnits, MapUnitCreate, MapUnitUpdate, MapUnitResponse,
-    ActiveMapRequest, CharacterTemplateResponse
+    ActiveMapRequest, CharacterTemplateResponse,
+    PlayerNoteUpdate, PlayerNoteResponse
 )
 from backend.auth import get_current_user
 
@@ -40,6 +43,20 @@ rooms_router = APIRouter(prefix="/api", tags=["房间系统"])
 
 
 # ============ 工具函数 ============
+
+async def verify_participant(room_id: int, user_id: int, db: AsyncSession):
+    """验证用户是房间参与者，否则抛出 403"""
+    result = await db.execute(
+        select(RoomParticipant).where(
+            and_(
+                RoomParticipant.room_id == room_id,
+                RoomParticipant.user_id == user_id
+            )
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="您不是房间参与者")
+
 
 def parse_dice(dice: str) -> tuple:
     match = re.match(r'(\d*)d(\d+)([+-]\d+)?', dice.lower())
@@ -97,6 +114,7 @@ async def get_all_rooms(
                 status=room.status,
                 created_at=room.created_at,
                 module_title=module_title,
+                module_theme=module.theme if module else None,
                 gm_username=gm_username,
                 current_players=current_players,
                 max_players=room.max_players or 8
@@ -144,6 +162,7 @@ async def get_gm_rooms(
                 status=room.status,
                 created_at=room.created_at,
                 module_title=module_title,
+                module_theme=module.theme if module else None,
                 gm_username=gm_username,
                 current_players=current_players,
                 max_players=room.max_players or 8
@@ -280,8 +299,14 @@ async def get_room(
     db: AsyncSession = Depends(get_db)
 ):
     """获取房间详情"""
-    result = await db.execute(select(Room).where(Room.id == room_id))
-    room = result.scalar_one_or_none()
+    result = await db.execute(
+        select(Room)
+        .where(Room.id == room_id)
+        .options(
+            selectinload(Room.participants).selectinload(RoomParticipant.user)
+        )
+    )
+    room = result.unique().scalar_one_or_none()
 
     if not room:
         raise HTTPException(status_code=404, detail="房间不存在")
@@ -292,19 +317,12 @@ async def get_room(
     result = await db.execute(select(User).where(User.id == room.gm_id))
     gm = result.scalar_one()
 
-    result = await db.execute(
-        select(RoomParticipant).where(RoomParticipant.room_id == room_id)
-    )
-    participants = result.scalars().all()
-
     participant_list = []
-    for p in participants:
-        result = await db.execute(select(User).where(User.id == p.user_id))
-        user = result.scalar_one()
+    for p in room.participants:
         participant_list.append(
             ParticipantResponse(
-                user_id=user.id,
-                username=user.username,
+                user_id=p.user.id,
+                username=p.user.username,
                 role=RoomRoleEnum(p.role),
                 character_name=p.character_name
             )
@@ -319,7 +337,8 @@ async def get_room(
         created_at=room.created_at,
         module_title=module.title,
         gm_username=gm.username,
-        current_players=len(participants),
+        module_theme=module.theme if module else None,
+        current_players=len(room.participants),
         max_players=room.max_players or 8,
         participants=participant_list
     )
@@ -554,18 +573,29 @@ async def get_room_resources(
         select(RoomResource).where(RoomResource.room_id == room_id)
     )
     room_resources = result.scalars().all()
-    room_resources_map = {rr.resource_id: rr.is_shown for rr in room_resources}
+    room_resources_map = {}
+    for rr in room_resources:
+        try:
+            blocks = json.loads(rr.revealed_blocks) if rr.revealed_blocks else []
+        except (json.JSONDecodeError, TypeError):
+            blocks = []
+        room_resources_map[rr.resource_id] = {
+            "is_shown": rr.is_shown,
+            "revealed_blocks": blocks
+        }
 
     resource_list = []
     for r in resources:
-        is_shown = room_resources_map.get(r.id, r.default_visible)
+        rr_data = room_resources_map.get(r.id, {"is_shown": r.default_visible, "revealed_blocks": []})
+        is_shown = rr_data["is_shown"]
+        revealed_blocks = rr_data["revealed_blocks"]
         resource_list.append({
             "id": r.id,
             "title": r.title,
             "type": r.type.value,
-            "display_type": r.display_type,
             "content": r.content,
             "is_shown": is_shown,
+            "revealed_blocks": revealed_blocks,
             "is_gm": participant.role == RoomRoleEnum.GM.value
         })
 
@@ -620,6 +650,127 @@ async def toggle_room_resource_visibility(
     await db.commit()
 
     return {"message": "资源可见性已更新", "is_shown": toggle_data.is_shown}
+
+
+@rooms_router.post("/rooms/{room_id}/resources/{resource_id}/toggle-block")
+async def toggle_block_visibility(
+    room_id: int,
+    resource_id: int,
+    block_data: BlockToggleRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """切换房间内资源隐藏段落的可见性（仅 GM）"""
+    result = await db.execute(select(Room).where(Room.id == room_id))
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="房间不存在")
+
+    if room.gm_id != current_user.id:
+        raise HTTPException(status_code=403, detail="只有房主可以控制资源可见性")
+
+    result = await db.execute(select(Resource).where(Resource.id == resource_id))
+    resource = result.scalar_one_or_none()
+    if not resource:
+        raise HTTPException(status_code=404, detail="资源不存在")
+
+    if resource.module_id != room.module_id:
+        raise HTTPException(status_code=400, detail="资源不属于该模组")
+
+    result = await db.execute(
+        select(RoomResource).where(
+            and_(
+                RoomResource.room_id == room_id,
+                RoomResource.resource_id == resource_id
+            )
+        )
+    )
+    room_resource = result.scalar_one_or_none()
+
+    if room_resource:
+        try:
+            blocks = json.loads(room_resource.revealed_blocks) if room_resource.revealed_blocks else []
+        except (json.JSONDecodeError, TypeError):
+            blocks = []
+    else:
+        blocks = []
+        room_resource = RoomResource(
+            room_id=room_id,
+            resource_id=resource_id,
+            is_shown=resource.default_visible
+        )
+        db.add(room_resource)
+
+    if block_data.is_revealed:
+        if block_data.block_index not in blocks:
+            blocks.append(block_data.block_index)
+    else:
+        blocks = [b for b in blocks if b != block_data.block_index]
+
+    room_resource.revealed_blocks = json.dumps(blocks)
+    await db.commit()
+
+    return {"message": "段落可见性已更新", "block_index": block_data.block_index, "is_revealed": block_data.is_revealed, "revealed_blocks": blocks}
+
+
+# ============ 玩家笔记本 API ============
+
+@rooms_router.get("/rooms/{room_id}/my-note", response_model=PlayerNoteResponse)
+async def get_player_note(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取/自动创建当前用户的私有笔记本"""
+    result = await db.execute(
+        select(PlayerNote).where(
+            and_(
+                PlayerNote.room_id == room_id,
+                PlayerNote.user_id == current_user.id
+            )
+        )
+    )
+    note = result.scalar_one_or_none()
+    if not note:
+        note = PlayerNote(
+            room_id=room_id,
+            user_id=current_user.id,
+            content=""
+        )
+        db.add(note)
+        await db.commit()
+        await db.refresh(note)
+    return note
+
+
+@rooms_router.put("/rooms/{room_id}/my-note", response_model=PlayerNoteResponse)
+async def update_player_note(
+    room_id: int,
+    note_data: PlayerNoteUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """更新当前用户的私有笔记本"""
+    result = await db.execute(
+        select(PlayerNote).where(
+            and_(
+                PlayerNote.room_id == room_id,
+                PlayerNote.user_id == current_user.id
+            )
+        )
+    )
+    note = result.scalar_one_or_none()
+    if not note:
+        note = PlayerNote(
+            room_id=room_id,
+            user_id=current_user.id
+        )
+        db.add(note)
+    note.content = note_data.content
+    note.updated_at = cst_now()
+    await db.commit()
+    await db.refresh(note)
+    return note
 
 
 # ============ 角色卡 API ============
@@ -730,6 +881,7 @@ async def get_room_characters(
     db: AsyncSession = Depends(get_db)
 ):
     """获取房间内的角色卡"""
+    await verify_participant(room_id, current_user.id, db)
     result = await db.execute(
         select(CharacterCard).where(CharacterCard.room_id == room_id)
     )
@@ -903,6 +1055,7 @@ async def roll_dice_api(
     db: AsyncSession = Depends(get_db)
 ):
     """掷骰子"""
+    await verify_participant(room_id, current_user.id, db)
     count, sides, modifier = parse_dice(dice_request.dice)
     rolls, total = roll_dice(count, sides, modifier)
 
@@ -967,27 +1120,26 @@ async def get_room_logs(
     db: AsyncSession = Depends(get_db)
 ):
     """获取房间日志"""
+    await verify_participant(room_id, current_user.id, db)
     # Get the newest N logs, then return in chronological order
     result = await db.execute(
         select(GameLog)
         .where(GameLog.room_id == room_id)
         .order_by(GameLog.created_at.desc())
         .limit(limit)
+        .options(selectinload(GameLog.user))
     )
-    logs = list(reversed(result.scalars().all()))
+    logs = list(reversed(result.unique().scalars().all()))
 
     result_list = []
     for log in logs:
-        user_result = await db.execute(select(User).where(User.id == log.user_id))
-        user = user_result.scalar_one_or_none()
-
         result_list.append(GameLogResponse(
             id=log.id,
             room_id=log.room_id,
             user_id=log.user_id,
             action=log.action,
             detail=log.detail,
-            username=user.username if user else "未知",
+            username=log.user.username if log.user else "未知",
             character_name=None,
             created_at=log.created_at
         ))
@@ -1008,6 +1160,7 @@ async def add_custom_log(
     db: AsyncSession = Depends(get_db)
 ):
     """添加自定义日志条目"""
+    await verify_participant(room_id, current_user.id, db)
     result = await db.execute(select(Room).where(Room.id == room_id))
     room = result.scalar_one_or_none()
     if not room:
@@ -1030,7 +1183,7 @@ async def add_custom_log(
         action=log.action,
         detail=log.detail,
         username=current_user.username,
-        character_name=char.name if char else None,
+        character_name=None,
         created_at=log.created_at
     )
 
@@ -1050,15 +1203,14 @@ async def clear_room_logs(
     if room.gm_id != current_user.id:
         raise HTTPException(status_code=403, detail="只有房主可以清空日志")
 
+    # M8 fix: Use bulk DELETE instead of loading all logs into memory
+    from sqlalchemy import delete as sql_delete
     result = await db.execute(
-        select(GameLog).where(GameLog.room_id == room_id)
+        sql_delete(GameLog).where(GameLog.room_id == room_id)
     )
-    logs = result.scalars().all()
-    for log in logs:
-        await db.delete(log)
     await db.commit()
 
-    return {"message": "日志已清空", "deleted_count": len(logs)}
+    return {"message": "日志已清空", "deleted_count": result.rowcount}
 
 
 # ============ 房间地图 API ============
@@ -1071,6 +1223,7 @@ async def get_room_map(
     db: AsyncSession = Depends(get_db)
 ):
     """获取房间激活地图（含 units）"""
+    await verify_participant(room_id, current_user.id, db)
     result = await db.execute(select(Room).where(Room.id == room_id))
     room = result.scalar_one_or_none()
     if not room:
@@ -1277,3 +1430,30 @@ async def upload_avatar(
         return {"url": f"/uploads/avatars/{filename}"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"图片处理失败: {str(e)}")
+
+
+@rooms_router.post("/upload/image")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """上传文档图片，保留原始尺寸"""
+    from backend.config import settings
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    allowed = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+    if ext not in allowed:
+        raise HTTPException(status_code=400, detail="不支持的图片格式")
+
+    content = await file.read()
+    if len(content) > settings.max_file_size:
+        raise HTTPException(status_code=400, detail="文件过大")
+
+    image_dir = os.path.join(settings.upload_dir, "images")
+    os.makedirs(image_dir, exist_ok=True)
+    filename = f"{uuid.uuid4()}{ext}"
+    path = os.path.join(image_dir, filename)
+    with open(path, 'wb') as f:
+        f.write(content)
+
+    return {"url": f"/uploads/images/{filename}"}

@@ -26,6 +26,9 @@
           <span>&times;</span>
           <input type="number" :value="selectedUnit.height" step="0.5" min="0.5" @change="onSizeChange($event, 'height')" />
         </div>
+        <div v-if="isGm" class="detail-actions">
+          <button class="detail-delete-btn" @click="emit('unit-delete', selectedUnit.id); selectedUnit = null">删除 Token</button>
+        </div>
       </div>
     </div>
     <div v-if="isGm" class="map-toolbar">
@@ -52,6 +55,7 @@ const selectedUnit = ref(null)
 
 let ctx = null
 let animId = null
+let dirty = true
 let scale = ref(1)
 let viewport = { x: 0, y: 0 }
 let mapImage = null
@@ -59,6 +63,11 @@ let isDraggingCanvas = false
 let isDraggingToken = false
 let dragTarget = null
 let dragOffset = { x: 0, y: 0 }
+
+function markDirty() {
+  dirty = true
+  if (!animId) animId = requestAnimationFrame(draw)
+}
 let lastMouse = { x: 0, y: 0 }
 let isResizing = false
 let resizeHandle = null
@@ -98,6 +107,7 @@ function loadMapImage() {
 }
 
 function draw() {
+  if (!dirty) { animId = null; return }
   const canvas = canvasRef.value
   if (!canvas || !ctx) return
 
@@ -142,7 +152,9 @@ function draw() {
 
   ctx.restore()
 
+  dirty = false
   animId = requestAnimationFrame(draw)
+  // Next frame: if still not dirty, the guard at the top will stop the loop
 }
 
 function getAvatarImage(url) {
@@ -304,6 +316,7 @@ function onWheel(e) {
   viewport.x = mapPos.x - (sx - cw / 2) / newScale
   viewport.y = mapPos.y - (sy - ch / 2) / newScale
   scale.value = newScale
+  markDirty()
 }
 
 function onMouseDown(e) {
@@ -318,6 +331,7 @@ function onMouseDown(e) {
 
   if (e.button === 1 || e.button === 2) {
     isDraggingCanvas = true
+    markDirty()
     return
   }
 
@@ -337,6 +351,7 @@ function onMouseDown(e) {
     const hit = hitTestUnit(mapPos.x, mapPos.y)
     if (hit) {
       selectedUnit.value = hit
+      markDirty()
       if (props.isGm) {
         isDraggingToken = true
         dragTarget = hit
@@ -348,6 +363,7 @@ function onMouseDown(e) {
       }
     } else {
       selectedUnit.value = null
+      markDirty()
     }
   }
 }
@@ -482,6 +498,7 @@ onUnmounted(() => {
 watch(() => props.mapData?.image_url, () => {
   loadMapImage()
   nextTick(centerOnMap)
+  markDirty()
 })
 
 watch(() => props.units, () => {
@@ -490,6 +507,7 @@ watch(() => props.units, () => {
     const updated = props.units.find(u => u.id === selectedUnit.value.id)
     if (updated) selectedUnit.value = updated
   }
+  markDirty()
 }, { deep: true })
 
 defineExpose({ centerOnMap, scale, viewport })
@@ -566,6 +584,26 @@ canvas {
   font-family: var(--font-body);
 }
 
+.detail-actions { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+
+.detail-delete-btn {
+  width: 100%;
+  padding: 6px 0;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.detail-delete-btn:hover {
+  background: var(--color-danger);
+  color: #fff;
+}
+
 .map-toolbar { position: absolute; bottom: 12px; left: 12px; z-index: 10; }
 
 .toolbar-btn {
@@ -582,7 +620,7 @@ canvas {
 }
 
 .toolbar-btn:hover {
-  box-shadow: 0 0 16px rgba(212, 168, 83, 0.25);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.25);
 }
 
 .zoom-indicator {

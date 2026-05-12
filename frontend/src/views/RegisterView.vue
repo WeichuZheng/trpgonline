@@ -76,7 +76,7 @@ async function handleRegister() {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 30% 40%, rgba(212, 168, 83, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 40%, rgba(var(--accent-rgb), 0.05) 0%, transparent 50%),
     radial-gradient(ellipse at 70% 70%, rgba(196, 122, 58, 0.04) 0%, transparent 40%);
 }
 
@@ -87,7 +87,7 @@ async function handleRegister() {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(212, 168, 83, 0.04);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(var(--accent-rgb), 0.04);
   position: relative;
   z-index: 1;
 }

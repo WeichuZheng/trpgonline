@@ -1,4 +1,5 @@
 # TRPG Online - 主应用入口
+import asyncio
 import traceback
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -9,14 +10,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
 from backend.database import init_db
 from backend.api import auth, modules, resources, rooms, maps
-from backend.websocket import websocket_endpoint
+from backend.websocket import websocket_endpoint, _heartbeat_loop
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     await init_db()
+    heartbeat_task = asyncio.create_task(_heartbeat_loop())
     yield
+    heartbeat_task.cancel()
+    try:
+        await heartbeat_task
+    except asyncio.CancelledError:
+        pass
 
 
 # 创建 FastAPI 应用
@@ -33,18 +40,21 @@ app = FastAPI(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """全局异常处理器：输出完整堆栈到终端，返回 500"""
+    """全局异常处理器：输出完整堆栈到终端，返回通用 500"""
     traceback.print_exc()
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc)}
+        content={"detail": "服务器内部错误"}
     )
 
 
-# 配置 CORS
+# 配置 CORS (H3 fix: use configurable origins)
+cors_origins = ["http://localhost:5173"] if settings.debug else []
+if settings.cors_origins:
+    cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

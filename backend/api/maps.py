@@ -79,7 +79,7 @@ async def create_map(
 
 
 @router.get("/maps/{map_id}", response_model=MapWithUnits)
-async def get_map(map_id: int, db: AsyncSession = Depends(get_db)):
+async def get_map(map_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """获取地图详情（含单位）"""
     result = await db.execute(select(Map).where(Map.id == map_id))
     map_data = result.scalar_one_or_none()
@@ -146,6 +146,14 @@ async def delete_map(
     module = result.scalar_one()
     if module.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权限")
+
+    # 清理关联的地图图片文件
+    import os
+    from backend.config import settings
+    if map_obj.image_url and map_obj.image_url.startswith("/uploads/"):
+        filepath = os.path.join(settings.upload_dir, map_obj.image_url.replace("/uploads/", ""))
+        if os.path.isfile(filepath):
+            os.remove(filepath)
 
     await db.delete(map_obj)
     await db.commit()

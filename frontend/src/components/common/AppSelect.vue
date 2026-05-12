@@ -114,7 +114,7 @@ const normalizedOptions = computed(() => {
 
 .select-field:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.08);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 .select-field:disabled {

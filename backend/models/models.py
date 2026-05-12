@@ -1,5 +1,5 @@
 # TRPG Online - 数据库模型
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Enum as SQLEnum, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone, timedelta
 import enum
@@ -39,6 +39,7 @@ class Module(Base):
     description = Column(Text, nullable=True)
     max_characters = Column(Integer, default=20)  # 角色数上限（NPC+怪物）
     default_max_players = Column(Integer, default=8)  # 默认玩家数上限
+    theme = Column(String(50), default="dark")  # 配色方案预设名称
     created_at = Column(DateTime, default=cst_now)
     updated_at = Column(DateTime, default=cst_now, onupdate=cst_now)
 
@@ -59,14 +60,16 @@ class ResourceType(enum.Enum):
 class Resource(Base):
     """资源表"""
     __tablename__ = "resources"
+    __table_args__ = (
+        Index('idx_resources_module_id', 'module_id'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
+    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     type = Column(SQLEnum(ResourceType), nullable=False)
     title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=True)  # 文本内容或图片URL
-    display_type = Column(String(50), default="story")  # 文本展示类型: story/rule/clue/character/mission
+    content = Column(Text, nullable=True)  # TipTap JSON 文档或图片URL
     default_visible = Column(Boolean, default=False)  # 模组编辑时的默认可见性
     created_at = Column(DateTime, default=cst_now)
 
@@ -83,6 +86,7 @@ class RoomResource(Base):
     room_id = Column(Integer, ForeignKey("rooms.id"), primary_key=True)
     resource_id = Column(Integer, ForeignKey("resources.id"), primary_key=True)
     is_shown = Column(Boolean, default=False)  # 房间内当前是否显示给玩家
+    revealed_blocks = Column(Text, default="[]")  # JSON array of revealed hidden-block indices
 
     # 关系
     room = relationship("Room", back_populates="room_resources")
@@ -99,6 +103,9 @@ class RoomStatus(enum.Enum):
 class Room(Base):
     """房间表"""
     __tablename__ = "rooms"
+    __table_args__ = (
+        Index('idx_rooms_module_id', 'module_id'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
@@ -137,6 +144,9 @@ class RoomParticipant(Base):
 class CharacterCard(Base):
     """角色卡表"""
     __tablename__ = "character_cards"
+    __table_args__ = (
+        Index('idx_character_cards_room_id', 'room_id'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
@@ -179,6 +189,9 @@ class Map(Base):
 class MapUnit(Base):
     """地图单位表"""
     __tablename__ = "map_units"
+    __table_args__ = (
+        Index('idx_map_units_map_id', 'map_id'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     map_id = Column(Integer, ForeignKey("maps.id"), nullable=False)
@@ -224,9 +237,31 @@ class CharacterTemplate(Base):
     module = relationship("Module", back_populates="character_templates")
 
 
+class PlayerNote(Base):
+    """玩家私有笔记表"""
+    __tablename__ = "player_notes"
+    __table_args__ = (
+        Index('idx_player_notes_room_id', 'room_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, default="")
+    updated_at = Column(DateTime, default=cst_now, onupdate=cst_now)
+
+    # 关系
+    room = relationship("Room")
+    user = relationship("User")
+
+
 class GameLog(Base):
     """游戏日志表"""
     __tablename__ = "game_logs"
+    __table_args__ = (
+        Index('idx_game_logs_room_id', 'room_id'),
+        Index('idx_game_logs_created_at', 'created_at'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)

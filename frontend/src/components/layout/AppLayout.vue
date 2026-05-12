@@ -9,6 +9,15 @@
         <router-link to="/rooms">房间列表</router-link>
         <router-link to="/gm/rooms" v-if="authStore.isGM">房间管理</router-link>
       </div>
+      <div class="nav-theme">
+        <select :value="activeTheme" @change="changeTheme($event.target.value)">
+          <option value="dark">🌙 墨火羊皮卷</option>
+          <option value="light">☀️ 象牙墨色</option>
+          <option value="sepia">📜 古卷羊皮</option>
+          <option value="forest">🌲 深林暗影</option>
+          <option value="ocean">🌊 深海湛蓝</option>
+        </select>
+      </div>
       <div class="nav-user">
         <span class="username">{{ authStore.username }}</span>
         <AppButton size="small" variant="ghost" @click="logout">退出</AppButton>
@@ -22,12 +31,31 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const STORAGE_KEY = 'trpg-theme-preference'
+const activeTheme = ref('dark')
+
+function applyTheme(theme) {
+  activeTheme.value = theme
+  document.documentElement.setAttribute('data-theme', theme)
+}
+
+function changeTheme(theme) {
+  applyTheme(theme)
+  localStorage.setItem(STORAGE_KEY, theme)
+}
+
+onMounted(() => {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) applyTheme(stored)
+})
 
 function logout() {
   authStore.logout()
@@ -88,8 +116,28 @@ function logout() {
   border-bottom-color: var(--accent-gold);
 }
 
-.nav-user {
+.nav-theme {
   margin-left: auto;
+  margin-right: 16px;
+}
+
+.nav-theme select {
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.nav-theme select:hover {
+  border-color: var(--border-default);
+}
+
+.nav-user {
   display: flex;
   align-items: center;
   gap: 12px;

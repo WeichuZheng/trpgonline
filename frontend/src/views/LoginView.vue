@@ -75,9 +75,9 @@ async function handleLogin() {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(212, 168, 83, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 50%, rgba(var(--accent-rgb), 0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(196, 122, 58, 0.04) 0%, transparent 40%),
-    radial-gradient(ellipse at 50% 80%, rgba(212, 168, 83, 0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 80%, rgba(var(--accent-rgb), 0.03) 0%, transparent 50%);
 }
 
 .auth-box {
@@ -87,7 +87,7 @@ async function handleLogin() {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(212, 168, 83, 0.04);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(var(--accent-rgb), 0.04);
   position: relative;
   z-index: 1;
 }

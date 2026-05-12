@@ -1,5 +1,6 @@
 <template>
   <div class="game-room">
+    <div v-if="!gameStore.wsConnected" class="ws-disconnected-bar">连接已断开，正在重连...</div>
     <div class="game-header">
       <AppButton variant="ghost" @click="leaveRoom">← 退出房间</AppButton>
       <h2>{{ currentRoom?.name }}</h2>
@@ -13,13 +14,19 @@
         {{ battleMode ? '⚔ 战斗模式' : '📖 叙事模式' }}
         <span class="mode-switch-hint">切换</span>
       </button>
+      <button v-if="isNarrowScreen && !battleMode" class="narrow-dice-toggle" @click="rightExpandedNarrow = !rightExpandedNarrow" :title="rightExpandedNarrow ? '隐藏骰子面板' : '显示骰子面板'">
+        🎲
+      </button>
       <span class="room-status" :class="'status-' + currentRoom?.status">{{ getStatusLabel(currentRoom?.status) }}</span>
     </div>
 
     <!-- ====== 叙事模式：三栏布局 ====== -->
     <div v-if="!battleMode" class="game-content narrative-mode">
-      <div class="game-left" :style="{ width: leftPanelWidth + 'px', flexShrink: 0 }">
-        <AppCard title="角色">
+      <div class="game-left" :class="{ 'left-expanded-narrow': leftExpandedNarrow, 'narrow-screen': isNarrowScreen }" :style="isNarrowScreen ? (leftExpandedNarrow ? { width: leftPanelWidth + 'px' } : { width: '40px' }) : { width: leftPanelWidth + 'px', flexShrink: 0 }">
+        <button v-if="isNarrowScreen" class="narrow-toggle-btn" @click="leftExpandedNarrow = !leftExpandedNarrow">
+          {{ leftExpandedNarrow ? '←' : '→' }}
+        </button>
+        <AppCard v-if="!isNarrowScreen || leftExpandedNarrow" title="角色">
           <div class="character-list">
             <CharacterSheet
               v-for="char in playerCharacters"
@@ -114,23 +121,53 @@
       <div class="resize-handle" @mousedown="startResizeLeft"></div>
 
       <div class="game-center">
-        <AppCard title="资源" class="resource-card-wrap">
-          <div class="resource-grid">
-            <div v-for="resource in gameStore.resources" :key="resource.id" class="resource-card" :class="{ 'is-hidden': !resource.is_shown }">
-              <div v-if="resource.type === 'image'" class="image-resource"><img :src="resource.content" :alt="resource.title"></div>
-              <div v-if="resource.type === 'text'" class="text-resource">
-                <span class="resource-display-type">{{ getDisplayTypeLabel(resource.display_type) }}</span>
-                <h4>{{ resource.title }}</h4>
-                <p>{{ resource.content }}</p>
-              </div>
-              <AppButton v-if="isGM" size="small" variant="secondary" @click="toggleResourceVisibility(resource)">{{ resource.is_shown ? '隐藏' : '显示' }}</AppButton>
+        <div class="doc-viewer-container">
+          <div class="doc-nav">
+            <div class="doc-nav-item notebook-nav-item" :class="{ active: activeDocId === 'notebook' }"
+              @click="activeDocId = 'notebook'">
+              <span class="doc-nav-icon">📝</span>
+              <span class="doc-nav-title">我的笔记</span>
             </div>
-            <div v-if="gameStore.resources.length === 0" class="empty-state">暂无资源</div>
+            <div v-for="resource in visibleResources" :key="resource.id"
+              class="doc-nav-item" :class="{ active: activeDocId === resource.id }"
+              @click="activeDocId = resource.id">
+              <span class="doc-nav-icon">📄</span>
+              <span class="doc-nav-title">{{ resource.title }}</span>
+              <span v-if="isGM" class="doc-nav-eye" :class="{ shown: resource.is_shown }"
+                @click.stop="toggleResourceVisibility(resource)" :title="resource.is_shown ? '对玩家可见' : '对玩家隐藏'">
+                {{ resource.is_shown ? '👁' : '👁‍🗨' }}
+              </span>
+            </div>
+            <div v-if="visibleResources.length === 0" class="doc-nav-empty">暂无文档</div>
           </div>
-        </AppCard>
+          <div class="doc-content-area">
+            <template v-if="activeDocId === 'notebook'">
+              <div class="doc-content-header">
+                <h3>📝 我的笔记</h3>
+                <div class="notebook-save-info">
+                  <span v-if="notebookSaving" class="notebook-saving">保存中...</span>
+                  <span v-else-if="notebookSavedAt" class="notebook-saved">已保存 {{ notebookSavedAt }}</span>
+                  <AppButton size="small" variant="secondary" @click="saveNote">保存</AppButton>
+                </div>
+              </div>
+              <ResourceEditor v-model="notebookContent" placeholder="在这里记录你的私人笔记..." />
+            </template>
+            <template v-else-if="activeDoc">
+              <div class="doc-content-header">
+                <h3>{{ activeDoc.title }}</h3>
+                <AppButton v-if="isGM" size="small" variant="secondary" @click="toggleResourceVisibility(activeDoc)">
+                  {{ activeDoc.is_shown ? '对玩家隐藏' : '对玩家显示' }}
+                </AppButton>
+              </div>
+              <ResourceViewer :content="activeDoc.content" :is-gm="isGM" :revealed-blocks="activeDoc.revealed_blocks || []" :doc-title="activeDoc.title" @toggle-block="onToggleBlock" />
+            </template>
+            <div v-else class="empty-state">选择文档或笔记查看</div>
+          </div>
+        </div>
       </div>
 
-      <div class="game-right">
+      <div class="game-right" :class="{ 'right-expanded-narrow': rightExpandedNarrow, 'narrow-hidden': isNarrowScreen && !rightExpandedNarrow }">
+        <button v-if="isNarrowScreen && rightExpandedNarrow" class="narrow-close-btn" @click="rightExpandedNarrow = false">✕</button>
         <DicePanel
           :characters="gameStore.characters"
           :selected-character-id="selectedCharacterId"
@@ -143,6 +180,7 @@
           @update:dice-reason="diceReason = $event"
           @roll-quick="rollQuickDice"
           @roll-expr="rollExprDice"
+          @roll-preset="rollPreset"
         />
         <LogPanel :logs="gameStore.gameLogs" :is-gm="isGM" @clear-logs="clearLogs" @add-log="addCustomLog" />
       </div>
@@ -198,6 +236,7 @@
           @add-token="openTokenForm"
           @unit-move="onUnitMove"
           @unit-update="onUnitUpdate"
+          @unit-delete="onUnitDelete"
         />
         <div v-else class="no-map-placeholder">
           <div v-if="isGM" class="gm-map-select">
@@ -231,6 +270,7 @@
             @update:dice-reason="diceReason = $event"
             @roll-quick="rollQuickDice"
             @roll-expr="rollExprDice"
+            @roll-preset="rollPreset"
             compact
           />
           <LogPanel :logs="gameStore.gameLogs" :is-gm="isGM" compact @clear-logs="clearLogs" @add-log="addCustomLog" />
@@ -325,6 +365,8 @@ import DicePanel from '@/components/game/DicePanel.vue'
 import LogPanel from '@/components/game/LogPanel.vue'
 import CharacterSheet from '@/components/game/CharacterSheet.vue'
 import AvatarUploader from '@/components/common/AvatarUploader.vue'
+import ResourceViewer from '@/components/editor/ResourceViewer.vue'
+import ResourceEditor from '@/components/editor/ResourceEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -345,11 +387,40 @@ const leftCollapsed = ref(false)
 const rightCollapsed = ref(false)
 const leftPanelWidth = ref(260)
 const isResizingLeft = ref(false)
+const isNarrowScreen = ref(window.innerWidth < 1024)
+const leftExpandedNarrow = ref(false)
+const rightExpandedNarrow = ref(false)
+
+function onResize() {
+  isNarrowScreen.value = window.innerWidth < 1024
+  if (!isNarrowScreen.value) {
+    leftExpandedNarrow.value = false
+    rightExpandedNarrow.value = false
+  }
+}
 const showTokenForm = ref(false)
 const mapCanvasRef = ref(null)
 const moduleMaps = ref([])
 const characterTemplates = ref([])
 const addCharSource = ref('template')
+const activeDocId = ref(null)
+
+// Notebook state
+const notebookContent = ref('')
+const notebookSavedAt = ref(null)
+const notebookSaving = ref(false)
+
+// Players only see documents marked as shown; GM sees all
+const visibleResources = computed(() => {
+  if (isGM.value) return gameStore.resources
+  return gameStore.resources.filter(r => r.is_shown)
+})
+
+const activeDoc = computed(() => {
+  if (!activeDocId.value) return visibleResources.value[0] || null
+  return visibleResources.value.find(r => r.id === activeDocId.value) || visibleResources.value[0] || null
+})
+
 const quickCharName = ref('')
 const quickCharProfession = ref('')
 const quickCharAvatar = ref('')
@@ -389,6 +460,10 @@ watch(() => gameStore.gameLogs.length, async () => {
   }
 })
 
+watch(notebookContent, () => {
+  scheduleNoteSave()
+})
+
 const characterForm = reactive({
   name: '', avatar: '', profession: '', hp: 10, max_hp: 10, san: 50, mp: 0, max_mp: 0, notes: '', is_npc: false
 })
@@ -419,6 +494,13 @@ async function loadGameState() {
 
   const logs = await diceService.getRoomLogs(roomId)
   gameStore.setGameLogs(Array.isArray(logs) ? logs : [])
+
+  // Load player note
+  try {
+    const note = await roomService.getPlayerNote(roomId)
+    gameStore.setPlayerNote(note)
+    notebookContent.value = note.content || ''
+  } catch {}
 
   // Load online users
   try {
@@ -453,6 +535,7 @@ onMounted(async () => {
     await loadGameState()
     connectWebSocket()
     setupVisibilityRestore()
+    window.addEventListener('resize', onResize)
   } catch (error) {
     toast.error('加载房间失败: ' + (error.message || '未知错误'))
   }
@@ -461,7 +544,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (ws) ws.close()
   if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+  if (notebookDebounceTimer) clearTimeout(notebookDebounceTimer)
   if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler)
+  window.removeEventListener('resize', onResize)
   gameStore.clearGame()
 })
 
@@ -484,10 +569,9 @@ function connectWebSocket() {
   }
 
   const roomId = route.params.id
-  const userId = authStore.user?.id
-  const username = authStore.user?.username || '匿名'
+  const token = authStore.token
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const wsUrl = `${protocol}//${window.location.host}/ws/room/${roomId}?user_id=${userId}&username=${encodeURIComponent(username)}`
+  const wsUrl = `${protocol}//${window.location.host}/ws/room/${roomId}?token=${encodeURIComponent(token)}`
 
   ws = new WebSocket(wsUrl)
   ws.onopen = () => { gameStore.setWsConnected(true) }
@@ -512,10 +596,23 @@ function handleWsMessage(data) {
       break
     case 'dice_result':
       gameStore.setDiceResult({ result: data.result, details: data.details, reason: data.reason })
-      gameStore.addGameLog({ action: 'dice', detail: data.details, username: data.rolled_by })
+      gameStore.addGameLog({ action: 'dice', detail: data.details, username: data.rolled_by, rolled_by: data.rolled_by })
       break
     case 'resource_toggled':
       gameStore.updateResourceVisibility(data.resource_id, data.is_visible)
+      break
+    case 'character_created':
+      if (data.character) {
+        gameStore.addCharacter(data.character)
+        gameStore.addGameLog({ action: 'custom', detail: `添加了角色: ${data.character.name}`, username: data.created_by })
+      }
+      break
+    case 'character_deleted':
+      gameStore.removeCharacter(data.character_id)
+      gameStore.addGameLog({ action: 'custom', detail: `删除了角色: ${data.character_name}`, username: data.deleted_by })
+      break
+    case 'block_toggled':
+      updateBlockRevealed(data.resource_id, data.block_index, data.is_revealed)
       break
     case 'hp_updated':
       gameStore.addGameLog({ action: data.type, detail: `${data.unit_name}: HP ${data.hp}/${data.max_hp}`, username: data.changed_by })
@@ -547,11 +644,17 @@ function handleWsMessage(data) {
 
 function toggleBattleMode() {
   battleMode.value = !battleMode.value
-  if (battleMode.value && currentRoom.value?.active_map_id && !gameStore.activeMap) {
-    loadActiveMap()
-  }
-  if (battleMode.value && isGM.value && moduleMaps.value.length === 0) {
-    loadModuleMaps()
+  if (battleMode.value) {
+    if (isNarrowScreen.value) {
+      leftCollapsed.value = true
+      rightCollapsed.value = true
+    }
+    if (currentRoom.value?.active_map_id && !gameStore.activeMap) {
+      loadActiveMap()
+    }
+    if (isGM.value && moduleMaps.value.length === 0) {
+      loadModuleMaps()
+    }
   }
 }
 
@@ -603,8 +706,67 @@ async function toggleResourceVisibility(resource) {
   try {
     await roomService.toggleResourceVisibility(route.params.id, resource.id, newVisibility)
     gameStore.updateResourceVisibility(resource.id, newVisibility)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'resource_visible', resource_id: resource.id, resource_title: resource.title, is_visible: newVisibility }))
+    }
   } catch {
     toast.error('操作失败')
+  }
+}
+
+async function saveNote() {
+  notebookSaving.value = true
+  try {
+    const result = await roomService.updatePlayerNote(route.params.id, notebookContent.value)
+    gameStore.setPlayerNote(result)
+    notebookSavedAt.value = new Date().toLocaleTimeString('zh-CN')
+    notebookSaving.value = false
+  } catch (error) {
+    notebookSaving.value = false
+    toast.error(error.message || '保存笔记失败')
+  }
+}
+
+let notebookDebounceTimer = null
+function scheduleNoteSave() {
+  if (notebookDebounceTimer) clearTimeout(notebookDebounceTimer)
+  notebookDebounceTimer = setTimeout(() => {
+    notebookDebounceTimer = null
+    saveNote()
+  }, 1000)
+}
+
+async function onToggleBlock(blockIndex) {
+  if (!activeDoc.value) return
+  const resourceId = activeDoc.value.id
+  const currentRevealed = activeDoc.value.revealed_blocks || []
+  const isRevealed = currentRevealed.includes(blockIndex)
+  const newRevealed = isRevealed
+    ? currentRevealed.filter(i => i !== blockIndex)
+    : [...currentRevealed, blockIndex]
+  try {
+    await roomService.toggleBlockVisibility(route.params.id, resourceId, blockIndex, !isRevealed)
+    // Update local resource data
+    const resource = gameStore.resources.find(r => r.id === resourceId)
+    if (resource) {
+      resource.revealed_blocks = newRevealed
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'block_toggled', resource_id: resourceId, block_index: blockIndex, is_revealed: !isRevealed }))
+    }
+  } catch {
+    toast.error('操作失败')
+  }
+}
+
+function updateBlockRevealed(resourceId, blockIndex, isRevealed) {
+  const resource = gameStore.resources.find(r => r.id === resourceId)
+  if (!resource) return
+  const current = resource.revealed_blocks || []
+  if (isRevealed && !current.includes(blockIndex)) {
+    resource.revealed_blocks = [...current, blockIndex]
+  } else if (!isRevealed) {
+    resource.revealed_blocks = current.filter(i => i !== blockIndex)
   }
 }
 
@@ -633,8 +795,16 @@ async function doRoll(diceStr, reason = null) {
       dice: diceStr, reason: reason || null, character_name: selectedCharacterName.value || null
     })
     gameStore.setDiceResult(result)
-    const logs = await diceService.getRoomLogs(route.params.id)
-    gameStore.setGameLogs(Array.isArray(logs) ? logs : [])
+    // Broadcast via WebSocket so other clients see the roll
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'dice_roll',
+        dice: result.dice,
+        result: result.result,
+        details: result.details,
+        reason: result.reason
+      }))
+    }
   } catch (error) {
     toast.error(error.message || '掷骰失败')
   }
@@ -652,6 +822,11 @@ function rollExprDice() {
     toast.error('表达式格式错误，请使用 xdy+z 格式（如 2d6+3）')
     return
   }
+  doRoll(expr, diceReason.value || null)
+}
+
+function rollPreset(expr) {
+  diceExpr.value = expr
   doRoll(expr, diceReason.value || null)
 }
 
@@ -696,11 +871,15 @@ async function saveCharacter() {
     delete payload.is_npc // can't change npc status after creation for edits
     if (editingCharacter.value) {
       await characterService.updateCharacter(editingCharacter.value.id, payload)
+      await refreshCharacters()
     } else {
       payload.is_npc = characterForm.is_npc
-      await characterService.createCharacter(route.params.id, payload)
+      const newChar = await characterService.createCharacter(route.params.id, payload)
+      gameStore.addCharacter(newChar)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'character_created', character: newChar }))
+      }
     }
-    await refreshCharacters()
     showCharacterForm.value = false
     closeCharacterForm()
     toast.success('保存成功')
@@ -712,8 +891,20 @@ async function saveCharacter() {
 async function deleteCharacter(char) {
   if (!confirm(`确定删除角色"${char.name}"？`)) return
   try {
+    // Delete linked map tokens first
+    const linkedUnits = gameStore.mapUnits.filter(u => u.character_id === char.id)
+    for (const unit of linkedUnits) {
+      await mapService.deleteUnit(route.params.id, unit.id)
+      gameStore.removeMapUnit(unit.id)
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'unit_deleted', unit_id: unit.id }))
+      }
+    }
     await characterService.deleteCharacter(char.id)
-    await refreshCharacters()
+    gameStore.removeCharacter(char.id)
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'character_deleted', character_id: char.id, character_name: char.name }))
+    }
     toast.success('角色已删除')
   } catch (error) {
     toast.error(error.message || '删除失败')
@@ -783,7 +974,7 @@ async function placeCharOnMap(char) {
 
 async function addCharFromTemplate(tpl) {
   try {
-    await characterService.createCharacter(route.params.id, {
+    const newChar = await characterService.createCharacter(route.params.id, {
       name: tpl.name,
       avatar: tpl.avatar || '',
       profession: tpl.profession || '',
@@ -799,7 +990,10 @@ async function addCharFromTemplate(tpl) {
       notes: tpl.notes || '',
       is_npc: true
     })
-    await refreshCharacters()
+    gameStore.addCharacter(newChar)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'character_created', character: newChar }))
+    }
     toast.success(`${tpl.name} 已加入`)
   } catch (error) {
     toast.error(error.message || '添加失败')
@@ -809,7 +1003,7 @@ async function addCharFromTemplate(tpl) {
 async function addCharCustom() {
   if (!quickCharName.value.trim()) return
   try {
-    await characterService.createCharacter(route.params.id, {
+    const newChar = await characterService.createCharacter(route.params.id, {
       name: quickCharName.value.trim(),
       avatar: quickCharAvatar.value || null,
       profession: quickCharProfession.value.trim() || null,
@@ -825,7 +1019,10 @@ async function addCharCustom() {
       notes: '',
       is_npc: quickCharIsEnemy.value
     })
-    await refreshCharacters()
+    gameStore.addCharacter(newChar)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'character_created', character: newChar }))
+    }
     quickCharName.value = ''
     quickCharAvatar.value = ''
     quickCharProfession.value = ''
@@ -898,6 +1095,19 @@ async function onUnitUpdate(unitId, updates) {
   } catch {}
 }
 
+async function onUnitDelete(unitId) {
+  try {
+    await mapService.deleteUnit(route.params.id, unitId)
+    gameStore.removeMapUnit(unitId)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'unit_deleted', unit_id: unitId }))
+    }
+    toast.success('Token 已删除')
+  } catch (error) {
+    toast.error(error.message || '删除失败')
+  }
+}
+
 async function leaveRoom() {
   if (!isGM.value) {
     try {
@@ -935,6 +1145,21 @@ function startResizeLeft(e) {
   display: flex;
   flex-direction: column;
   height: 100vh;
+
+.ws-disconnected-bar {
+  background: #e74c3c;
+  color: white;
+  text-align: center;
+  padding: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: pulse-bar 2s ease-in-out infinite;
+}
+
+@keyframes pulse-bar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
   background: var(--bg-deep);
 }
 
@@ -1122,7 +1347,7 @@ function startResizeLeft(e) {
 }
 
 .map-select-btn:hover {
-  box-shadow: 0 0 16px rgba(212, 168, 83, 0.25);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.25);
 }
 
 .no-map-text {
@@ -1141,7 +1366,7 @@ function startResizeLeft(e) {
   transition: background 0.15s;
   margin: 0 4px;
 }
-.resize-handle:hover { background: var(--accent-gold-dim, rgba(212, 168, 83, 0.3)); }
+.resize-handle:hover { background: rgba(var(--accent-rgb), 0.3); }
 
 .resize-handle-vertical {
   width: 6px;
@@ -1150,7 +1375,7 @@ function startResizeLeft(e) {
   flex-shrink: 0;
   transition: background 0.15s;
 }
-.resize-handle-vertical:hover { background: var(--accent-gold-dim, rgba(212, 168, 83, 0.3)); }
+.resize-handle-vertical:hover { background: rgba(var(--accent-rgb), 0.3); }
 
 .character-list { display: flex; flex-direction: column; gap: 8px; }
 .character-list.compact { gap: 4px; }
@@ -1240,7 +1465,7 @@ function startResizeLeft(e) {
   transition: all 0.15s;
   text-align: left;
 }
-.add-template-btn:hover { border-color: var(--accent-gold); background: rgba(212, 168, 83, 0.06); }
+.add-template-btn:hover { border-color: var(--accent-gold); background: rgba(var(--accent-rgb), 0.06); }
 
 .tpl-icon { font-size: 14px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
 .tpl-avatar-img { width: 100%; height: 100%; object-fit: cover; }
@@ -1302,37 +1527,99 @@ function startResizeLeft(e) {
 
 .stat-line { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
 
-/* ====== 资源 ====== */
+/* ====== 资源（文档视图） ====== */
 .game-center { overflow-y: auto; min-width: 0; flex: 1; }
-.resource-card-wrap { height: 100%; display: flex; flex-direction: column; }
-.resource-card-wrap :deep(.card-body) { flex: 1; overflow-y: auto; }
 
-.resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-
-.resource-card {
-  padding: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+.doc-viewer-container {
+  display: flex;
+  height: 100%;
+  background: var(--bg-primary);
   border-radius: var(--radius-md);
-  transition: opacity 0.2s;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
 }
 
-.resource-card.is-hidden { opacity: 0.5; }
-.image-resource img { width: 100%; border-radius: 6px; display: block; }
+.doc-nav {
+  width: 180px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-subtle);
+  overflow-y: auto;
+  padding: 8px 0;
+  background: var(--bg-secondary);
+}
 
-.resource-display-type {
-  display: inline-block;
-  padding: 2px 8px;
-  background: var(--color-info-dim);
-  color: var(--color-info);
-  border-radius: 4px;
-  font-size: 11px;
+.doc-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+.doc-nav-item:hover { background: var(--bg-card); color: var(--text-primary); }
+.doc-nav-item.active { background: rgba(var(--accent-rgb), 0.1); color: var(--accent-gold); border-right: 2px solid var(--accent-gold); }
+
+.doc-nav-icon { font-size: 14px; flex-shrink: 0; }
+.doc-nav-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-nav-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
+
+.doc-nav-item.notebook-nav-item {
+  border-bottom: 1px dashed var(--border-default);
+  margin-bottom: 4px;
   font-weight: 500;
-  margin-bottom: 8px;
 }
 
-.text-resource h4 { font-size: 15px; margin-bottom: 6px; color: var(--text-primary); font-family: var(--font-display); }
-.text-resource p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
+.doc-nav-eye {
+  font-size: 13px;
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  cursor: pointer;
+  padding: 2px;
+}
+.doc-nav-eye:hover { opacity: 1; }
+.doc-nav-eye.shown { opacity: 0.8; }
+
+.doc-content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px;
+  min-width: 0;
+}
+
+.doc-content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.doc-content-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+
+.notebook-save-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.notebook-saving {
+  color: var(--color-warning);
+}
+
+.notebook-saved {
+  color: var(--color-success);
+}
 
 /* ====== 右侧：掷骰+日志 ====== */
 .game-right { display: flex; flex-direction: column; gap: 16px; min-height: 0; width: 300px; flex-shrink: 0; }
@@ -1352,4 +1639,148 @@ function startResizeLeft(e) {
 .form-row-label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
 .quick-avatar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .quick-avatar-label { font-size: 12px; color: var(--text-muted); }
+
+/* ====== Narrow screen / Tablet adaptation ====== */
+.narrow-toggle-btn {
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  z-index: 10;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.narrow-toggle-btn:hover { background: var(--accent-gold); color: var(--text-inverse); }
+
+.narrow-dice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s;
+}
+.narrow-dice-toggle:hover { border-color: var(--accent-gold); }
+
+.narrow-close-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.3);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.narrow-close-btn:hover { color: var(--text-primary); }
+
+@media (max-width: 1023px) {
+  .narrative-mode {
+    padding: 8px;
+    position: relative;
+  }
+
+  .narrative-mode .game-left {
+    position: relative;
+    width: 40px !important;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .narrative-mode .game-left.left-expanded-narrow {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    bottom: 8px;
+    z-index: 50;
+    width: 260px !important;
+    flex-shrink: 0;
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+  }
+
+  .narrative-mode .game-left.narrow-screen:not(.left-expanded-narrow) > .card {
+    display: none;
+  }
+
+  .narrative-mode .game-right {
+    width: 300px;
+    flex-shrink: 0;
+  }
+
+  .narrative-mode .game-right.narrow-hidden {
+    display: none;
+  }
+
+  .narrative-mode .game-right.right-expanded-narrow {
+    display: flex;
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    bottom: 8px;
+    z-index: 50;
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    padding: 8px;
+  }
+
+  .narrative-mode .resize-handle {
+    display: none;
+  }
+
+  .narrative-mode .game-center {
+    min-width: 0;
+  }
+
+  .doc-viewer-container {
+    flex-direction: column;
+  }
+
+  .doc-nav {
+    width: 100%;
+    max-height: 120px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px;
+    overflow-y: auto;
+  }
+
+  .doc-nav-item {
+    font-size: 12px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    border-radius: var(--radius-sm);
+  }
+
+  .doc-content-area {
+    padding: 12px 16px;
+  }
+}
 </style>

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from backend.database import get_db
-from backend.models.models import User, Module, CharacterTemplate
+from backend.models.models import User, Module, CharacterTemplate, Resource, Map
 from backend.schemas.schemas import (
     ModuleCreate, ModuleUpdate, ModuleResponse, ModuleWithOwner,
     CharacterTemplateCreate, CharacterTemplateUpdate, CharacterTemplateResponse
@@ -170,6 +170,22 @@ async def delete_module(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="您不是该模组的拥有者"
         )
+
+    # 清理关联的上传文件
+    import os
+    from backend.config import settings
+    result = await db.execute(select(Resource).where(Resource.module_id == module_id))
+    for r in result.scalars().all():
+        if r.content and r.content.startswith("/uploads/"):
+            filepath = os.path.join(settings.upload_dir, r.content.replace("/uploads/", ""))
+            if os.path.isfile(filepath):
+                os.remove(filepath)
+    result = await db.execute(select(Map).where(Map.module_id == module_id))
+    for m in result.scalars().all():
+        if m.image_url and m.image_url.startswith("/uploads/"):
+            filepath = os.path.join(settings.upload_dir, m.image_url.replace("/uploads/", ""))
+            if os.path.isfile(filepath):
+                os.remove(filepath)
 
     await db.delete(module)
     await db.commit()

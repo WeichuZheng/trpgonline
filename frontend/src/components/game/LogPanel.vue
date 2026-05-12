@@ -7,12 +7,16 @@
         </button>
       </div>
     </template>
+    <div class="log-search-row">
+      <input v-model="searchQuery" class="log-search-input" placeholder="搜索日志..." />
+    </div>
     <div class="log-messages" ref="logContainer">
-      <div v-for="log in logs" :key="log.id" class="log-entry" :class="log.action">
+      <div v-for="log in filteredLogs" :key="log.id" class="log-entry" :class="log.action">
         <span class="log-time">{{ formatTime(log.created_at) }}</span>
         <span class="log-content">{{ formatLogDetail(log) }}</span>
       </div>
-      <div v-if="logs.length === 0" class="empty-state">暂无游戏记录</div>
+      <div v-if="filteredLogs.length === 0 && logs.length > 0" class="empty-state">没有匹配的日志</div>
+      <div v-else-if="logs.length === 0" class="empty-state">暂无游戏记录</div>
     </div>
     <div class="log-input-row">
       <input
@@ -29,12 +33,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   logs: { type: Array, default: () => [] },
   compact: { type: Boolean, default: false },
   isGm: { type: Boolean, default: false }
+})
+
+const searchQuery = ref('')
+
+const filteredLogs = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return props.logs
+  return props.logs.filter(log => {
+    const detail = log.detail || ''
+    return detail.toLowerCase().includes(q)
+  })
 })
 
 const emit = defineEmits(['clear-logs', 'add-log'])
@@ -97,6 +112,22 @@ function submitCustomLog() {
 }
 .log-action-btn:hover { background: rgba(244,67,54,0.15); color: var(--color-danger); }
 .log-action-btn .btn-icon { font-size: 11px; }
+
+.log-search-row { padding: 0 0 6px; flex-shrink: 0; }
+
+.log-search-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+}
+.log-search-input:focus { border-color: var(--border-focus); }
+.log-search-input::placeholder { color: var(--text-muted); }
 
 .log-messages { flex: 1; overflow-y: auto; min-height: 0; }
 

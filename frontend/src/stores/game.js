@@ -13,6 +13,7 @@ export const useGameStore = defineStore('game', () => {
   const loading = ref(false)
   const activeMap = ref(null)
   const mapUnits = ref([])
+  const playerNote = ref(null)
 
   const visibleResources = computed(() => resources.value.filter(r => r.is_shown))
   const hiddenResources = computed(() => resources.value.filter(r => !r.is_shown))
@@ -93,9 +94,11 @@ export const useGameStore = defineStore('game', () => {
     characters.value = characters.value.filter(c => c.id !== characterId)
   }
 
+  let _logIdCounter = 0
+
   function addGameLog(log) {
     gameLogs.value.push({
-      id: Date.now(),
+      id: ++_logIdCounter,
       ...log,
       created_at: new Date().toISOString()
     })
@@ -121,6 +124,10 @@ export const useGameStore = defineStore('game', () => {
     ws.value = socket
   }
 
+  function setPlayerNote(note) {
+    playerNote.value = note
+  }
+
   function clearGame() {
     roomId.value = null
     resources.value = []
@@ -132,6 +139,7 @@ export const useGameStore = defineStore('game', () => {
     ws.value = null
     activeMap.value = null
     mapUnits.value = []
+    playerNote.value = null
   }
 
   return {
@@ -167,6 +175,8 @@ export const useGameStore = defineStore('game', () => {
     addMapUnit,
     updateMapUnit,
     removeMapUnit,
+    playerNote,
+    setPlayerNote,
     clearGame
   }
 })

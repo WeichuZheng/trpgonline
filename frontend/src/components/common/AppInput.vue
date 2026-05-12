@@ -83,7 +83,7 @@ const inputId = computed(() => props.id || `input-${Math.random().toString(36).s
 
 .input-wrapper:focus-within {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.08);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.08);
 }
 
 .input-field {

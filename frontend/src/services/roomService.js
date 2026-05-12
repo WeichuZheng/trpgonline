@@ -70,8 +70,26 @@ export const roomService = {
     return response.data
   },
 
+  async toggleBlockVisibility(roomId, resourceId, blockIndex, isRevealed) {
+    const response = await api.post(`/rooms/${roomId}/resources/${resourceId}/toggle-block`, {
+      block_index: blockIndex,
+      is_revealed: isRevealed
+    })
+    return response.data
+  },
+
   async getOnlineUsers(roomId) {
     const response = await api.get(`/rooms/${roomId}/online-users`)
+    return response.data
+  },
+
+  async getPlayerNote(roomId) {
+    const response = await api.get(`/rooms/${roomId}/my-note`)
+    return response.data
+  },
+
+  async updatePlayerNote(roomId, content) {
+    const response = await api.put(`/rooms/${roomId}/my-note`, { content })
     return response.data
   }
 }

@@ -86,7 +86,7 @@ defineEmits(['click'])
 
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--accent-gold-bright), var(--accent-gold));
-  box-shadow: 0 0 16px rgba(212, 168, 83, 0.25);
+  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.25);
 }
 
 .btn-secondary {
@@ -129,7 +129,7 @@ defineEmits(['click'])
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: rgba(212, 168, 83, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--text-primary);
 }
 

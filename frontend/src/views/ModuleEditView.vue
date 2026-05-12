@@ -3,6 +3,16 @@
     <div class="module-edit-header">
       <AppButton variant="ghost" @click="goBack">← 返回</AppButton>
       <h2>{{ module?.title || '加载中...' }}</h2>
+      <div class="header-theme-select">
+        <label class="theme-label">推荐主题：</label>
+        <select :value="module?.theme || 'dark'" @change="saveTheme($event.target.value)">
+          <option value="dark">🌙 墨火羊皮卷</option>
+          <option value="light">☀️ 象牙墨色</option>
+          <option value="sepia">📜 古卷羊皮</option>
+          <option value="forest">🌲 深林暗影</option>
+          <option value="ocean">🌊 深海湛蓝</option>
+        </select>
+      </div>
     </div>
 
     <div class="module-edit-content" v-if="module">
@@ -15,60 +25,56 @@
 
       <!-- ====== 资源管理 Tab ====== -->
       <template v-if="activeTab === 'resources'">
-        <AppCard title="资源管理">
-          <template #header>
-            <div class="section-header">
-              <h3>资源管理</h3>
-              <AppButton size="small" @click="showResourceForm = true">+ 添加资源</AppButton>
-            </div>
-          </template>
+        <!-- Document list view -->
+        <template v-if="!editingResourceId">
+          <AppCard title="文档管理">
+            <template #header>
+              <div class="section-header">
+                <h3>文档管理</h3>
+                <AppButton size="small" @click="openNewDocForm">+ 新建文档</AppButton>
+              </div>
+            </template>
 
-          <div class="resource-list">
-            <div
-              v-for="resource in resources"
-              :key="resource.id"
-              class="resource-item"
-              :class="{ visible: resource.default_visible }"
-            >
-              <span class="resource-title">{{ resource.title }}</span>
-              <span class="resource-type">{{ resource.type === 'image' ? '图片' : '文本' }}</span>
-              <span class="resource-visibility" :class="resource.default_visible ? 'shown' : 'hidden'">
-                {{ resource.default_visible ? '已显示' : '已隐藏' }}
-              </span>
-              <AppButton size="small" variant="secondary" @click="toggleVisibility(resource)">
-                {{ resource.default_visible ? '隐藏' : '显示' }}
-              </AppButton>
-              <AppButton size="small" variant="danger" @click="confirmDeleteResource(resource)">删除</AppButton>
+            <p class="tab-hint">文档支持富文本编辑，GM可在房间中控制段落级可见性。</p>
+
+            <div class="resource-list">
+              <div v-for="resource in resources" :key="resource.id" class="resource-item" @click="openDocEditor(resource)">
+                <span class="resource-doc-icon">📄</span>
+                <div class="resource-info">
+                  <span class="resource-title">{{ resource.title }}</span>
+                </div>
+                <AppButton size="small" variant="secondary" @click.stop="openDocEditor(resource)">编辑</AppButton>
+                <AppButton size="small" variant="danger" @click.stop="confirmDeleteResource(resource)">删除</AppButton>
+              </div>
+              <div v-if="resources.length === 0" class="empty-state">
+                暂无文档，点击上方按钮创建
+              </div>
             </div>
-            <div v-if="resources.length === 0" class="empty-state">
-              暂无资源，点击上方按钮添加
+          </AppCard>
+        </template>
+
+        <!-- Document editor view -->
+        <template v-else>
+          <div class="doc-editor-view">
+            <div class="doc-editor-header">
+              <AppButton variant="ghost" @click="closeDocEditor">← 返回文档列表</AppButton>
+              <AppInput v-model="editingResourceTitle" placeholder="文档标题" class="doc-title-input" />
+              <AppButton :variant="editingResourceTitle.trim() ? 'primary' : 'secondary'" @click="saveDocContent" :loading="loading">保存</AppButton>
             </div>
+            <ResourceEditor v-model="editingResourceContent" :is-gm="true" :placeholder="'开始编写 ' + editingResourceTitle + '...'" />
           </div>
-        </AppCard>
+        </template>
 
-        <!-- Add Resource Form -->
-        <AppCard v-if="showResourceForm" title="添加资源">
-          <form @submit.prevent="handleCreateResource">
-            <AppSelect v-model="newResource.type" :options="typeOptions" label="类型" required></AppSelect>
-            <AppInput v-model="newResource.title" label="标题" placeholder="请输入标题" required></AppInput>
-
-            <div v-if="newResource.type === 'text'" class="form-group">
-              <AppSelect v-model="newResource.display_type" :options="displayTypes" label="显示类型" required></AppSelect>
-              <label>内容</label>
-              <textarea v-model="newResource.content" placeholder="请输入文本内容" rows="6"></textarea>
-            </div>
-
-            <div v-if="newResource.type === 'image'" class="form-group">
-              <label>选择图片</label>
-              <input type="file" accept="image/*" @change="handleFileSelect">
-            </div>
-
+        <!-- New Doc Form Modal -->
+        <AppModal v-model="showNewDocForm" title="新建文档" size="small">
+          <form @submit.prevent="handleCreateDoc">
+            <AppInput v-model="newDocTitle" label="文档标题" placeholder="如：第一章 神秘的庄园" required></AppInput>
             <div class="form-actions">
-              <AppButton variant="secondary" @click="showResourceForm = false">取消</AppButton>
-              <AppButton type="submit" :loading="loading">保存</AppButton>
+              <AppButton variant="secondary" @click="showNewDocForm = false">取消</AppButton>
+              <AppButton type="submit" :variant="newDocTitle.trim() ? 'primary' : 'secondary'" :disabled="!newDocTitle.trim()">创建</AppButton>
             </div>
           </form>
-        </AppCard>
+        </AppModal>
       </template>
 
       <!-- ====== 地图管理 Tab ====== -->
@@ -115,7 +121,7 @@
             </details>
             <div class="form-actions">
               <AppButton variant="secondary" @click="showMapForm = false">取消</AppButton>
-              <AppButton type="submit" :loading="loading">保存</AppButton>
+              <AppButton type="submit" :loading="loading" :variant="newMap.name.trim() ? 'primary' : 'secondary'">保存</AppButton>
             </div>
           </form>
         </AppCard>
@@ -268,7 +274,7 @@
             </div>
             <div class="form-actions">
               <AppButton variant="secondary" @click="showTemplateForm = false">取消</AppButton>
-              <AppButton type="submit" :loading="loading">保存</AppButton>
+              <AppButton type="submit" :loading="loading" :variant="templateForm.name.trim() ? 'primary' : 'secondary'">保存</AppButton>
             </div>
           </form>
         </AppCard>
@@ -315,8 +321,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, inject } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, onUnmounted, inject } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useModulesStore } from '@/stores/modules'
 import { resourceService } from '@/services/resourceService'
 import mapService from '@/services/mapService'
@@ -327,6 +333,7 @@ import AppInput from '@/components/common/AppInput.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import AppSelect from '@/components/common/AppSelect.vue'
 import AvatarUploader from '@/components/common/AvatarUploader.vue'
+import ResourceEditor from '@/components/editor/ResourceEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -357,9 +364,38 @@ const newResource = reactive({
   type: 'text',
   title: '',
   content: '',
-  display_type: 'story',
   file: null
 })
+
+// Document editor state
+const editingResourceId = ref(null)
+const editingResourceTitle = ref('')
+const editingResourceContent = ref('')
+let savedResourceContent = ''
+
+const hasUnsavedChanges = computed(() =>
+  editingResourceId.value && editingResourceContent.value !== savedResourceContent
+)
+
+function beforeUnload(e) {
+  if (hasUnsavedChanges.value) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+
+onBeforeRouteLeave((to, from, next) => {
+  if (hasUnsavedChanges.value && !confirm('有未保存的修改，确定离开吗？')) {
+    next(false)
+  } else {
+    next()
+  }
+})
+
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
+const showNewDocForm = ref(false)
+const newDocTitle = ref('')
 
 const newMap = reactive({
   name: '',
@@ -410,14 +446,6 @@ const typeOptions = [
   { value: 'image', label: '图片' }
 ]
 
-const displayTypes = [
-  { value: 'story', label: '背景故事' },
-  { value: 'rule', label: '规则说明' },
-  { value: 'clue', label: '线索卡' },
-  { value: 'character', label: '角色描述' },
-  { value: 'mission', label: '任务目标' }
-]
-
 onMounted(async () => {
   const moduleId = route.params.id
   try {
@@ -461,33 +489,38 @@ function goBack() {
   router.push('/dashboard')
 }
 
-// ====== Resources ======
-
-function handleFileSelect(event) {
-  const file = event.target.files[0]
-  if (file) newResource.file = file
+async function saveTheme(theme) {
+  try {
+    await modulesStore.updateModule(module.value.id, { theme })
+    if (module.value) module.value.theme = theme
+    toast.success('推荐主题已更新')
+  } catch (e) {
+    toast.error('主题更新失败')
+  }
 }
 
-async function handleCreateResource() {
-  if (!newResource.title.trim()) { toast.error('请输入标题'); return }
-  if (newResource.type === 'text' && !newResource.content?.trim()) { toast.error('请输入文本内容'); return }
-  if (newResource.type === 'image' && !newResource.file) { toast.error('请选择图片'); return }
+// ====== Resources (Document System) ======
+
+function openNewDocForm() {
+  newDocTitle.value = ''
+  showNewDocForm.value = true
+}
+
+async function handleCreateDoc() {
+  if (!newDocTitle.value.trim()) { toast.error('请输入文档标题'); return }
 
   loading.value = true
   try {
+    // Create with empty TipTap JSON document
+    const emptyDoc = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] })
     await resourceService.createResource(route.params.id, {
-      type: newResource.type,
-      title: newResource.title,
-      content: newResource.content,
-      display_type: newResource.display_type,
-      file: newResource.file
+      type: 'text',
+      title: newDocTitle.value.trim(),
+      content: emptyDoc,
     })
-    toast.success('资源创建成功')
-    showResourceForm.value = false
+    toast.success('文档已创建')
+    showNewDocForm.value = false
     await fetchResources()
-    newResource.title = ''
-    newResource.content = ''
-    newResource.file = null
   } catch (error) {
     toast.error(error.message || '创建失败')
   } finally {
@@ -495,13 +528,35 @@ async function handleCreateResource() {
   }
 }
 
-async function toggleVisibility(resource) {
+function openDocEditor(resource) {
+  editingResourceId.value = resource.id
+  editingResourceTitle.value = resource.title
+  editingResourceContent.value = resource.content || ''
+  savedResourceContent = resource.content || ''
+}
+
+function closeDocEditor() {
+  editingResourceId.value = null
+  editingResourceTitle.value = ''
+  editingResourceContent.value = ''
+  savedResourceContent = ''
+}
+
+async function saveDocContent() {
+  if (!editingResourceId.value) return
+  loading.value = true
   try {
-    await resourceService.toggleDefaultVisible(resource.id, !resource.default_visible)
+    await resourceService.updateResource(editingResourceId.value, {
+      title: editingResourceTitle.value.trim(),
+      content: editingResourceContent.value,
+    })
+    savedResourceContent = editingResourceContent.value
+    toast.success('文档已保存')
     await fetchResources()
-    toast.success('更新成功')
   } catch (error) {
-    toast.error(error.message || '操作失败')
+    toast.error(error.message || '保存失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -721,7 +776,14 @@ async function handleDeleteTemplate() {
 .module-edit { padding: 32px; max-width: 1200px; margin: 0 auto; }
 
 .module-edit-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-.module-edit-header h2 { font-family: var(--font-display); font-size: 22px; color: var(--accent-gold); letter-spacing: 0.04em; }
+.module-edit-header h2 { font-family: var(--font-display); font-size: 22px; color: var(--accent-gold); letter-spacing: 0.04em; flex: 1; }
+.header-theme-select { display: flex; align-items: center; gap: 6px; }
+.theme-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.header-theme-select select {
+  padding: 4px 8px; font-size: 13px; font-family: var(--font-body);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: var(--bg-input); color: var(--text-primary); cursor: pointer;
+}
 
 .module-edit-content { display: flex; flex-direction: column; gap: 20px; }
 
@@ -758,10 +820,28 @@ async function handleDeleteTemplate() {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.resource-item:hover { border-color: var(--accent-gold); }
+
+.resource-doc-icon { font-size: 18px; flex-shrink: 0; }
+.resource-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.resource-title { font-weight: 500; color: var(--text-primary); font-size: 14px; }
+.resource-type { color: var(--text-muted); font-size: 14px; }
+
+/* ====== Document Editor ====== */
+.doc-editor-view { display: flex; flex-direction: column; gap: 12px; }
+
+.doc-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
 }
 
-.resource-title { flex: 1; font-weight: 500; color: var(--text-primary); }
-.resource-type { color: var(--text-muted); font-size: 14px; }
+.doc-title-input { flex: 1; }
+.doc-title-input :deep(input) { font-size: 16px; font-weight: 600; font-family: var(--font-display); }
 
 .resource-visibility { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
 .resource-visibility.shown { background: var(--color-success-dim); color: var(--color-success); }

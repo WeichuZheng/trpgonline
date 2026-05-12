@@ -8,12 +8,12 @@ from enum import Enum
 # ============ 基础 schemas ============
 
 class UserBase(BaseModel):
-    username: str
+    username: str = Field(min_length=2, max_length=50, pattern=r'^[a-zA-Z0-9_一-鿿]+$')
     can_create_module: bool = False
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(min_length=6, max_length=128)
 
 
 class UserLogin(BaseModel):
@@ -49,13 +49,18 @@ class ModuleCreate(ModuleBase):
     pass
 
 
-class ModuleUpdate(ModuleBase):
-    pass
+class ModuleUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = None
+    max_characters: Optional[int] = None
+    default_max_players: Optional[int] = None
+    theme: Optional[str] = None
 
 
 class ModuleResponse(ModuleBase):
     id: int
     owner_id: int
+    theme: str = "dark"
     created_at: datetime
     updated_at: datetime
 
@@ -87,7 +92,6 @@ class DisplayTypeEnum(str, Enum):
 class ResourceBase(BaseModel):
     title: str
     type: ResourceTypeEnum
-    display_type: DisplayTypeEnum = DisplayTypeEnum.STORY
 
 
 class ResourceCreate(ResourceBase):
@@ -98,7 +102,6 @@ class ResourceCreate(ResourceBase):
 class ResourceUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    display_type: Optional[DisplayTypeEnum] = None
     default_visible: Optional[bool] = None
 
 
@@ -122,6 +125,11 @@ class ResourceToggleVisible(BaseModel):
 
 class RoomResourceToggle(BaseModel):
     is_shown: bool
+
+
+class BlockToggleRequest(BaseModel):
+    block_index: int
+    is_revealed: bool
 
 
 # ============ 房间 schemas ============
@@ -163,6 +171,7 @@ class RoomResponse(RoomBase):
     gm_username: Optional[str] = None
     current_players: Optional[int] = None
     max_players: int = 8
+    module_theme: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -353,7 +362,7 @@ class GameLogResponse(GameLogBase):
 # ============ 掷骰子 schemas ============
 
 class DiceRollRequest(BaseModel):
-    dice: str = "1d20"  # 默认 d20
+    dice: str = Field("1d20", pattern=r'^\d{1,3}d\d{1,3}([+-]\d{1,3})?$')
     reason: Optional[str] = None
     character_name: Optional[str] = None
 
@@ -388,6 +397,22 @@ class AttackResponse(BaseModel):
 
 class ActiveMapRequest(BaseModel):
     map_id: Optional[int] = None
+
+
+# ============ 玩家笔记 schemas ============
+
+class PlayerNoteUpdate(BaseModel):
+    content: str = ""
+
+class PlayerNoteResponse(BaseModel):
+    id: int
+    room_id: int
+    user_id: int
+    content: str
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # ============ 角色模板 schemas ============
