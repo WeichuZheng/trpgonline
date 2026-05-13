@@ -50,7 +50,7 @@ async function handleRegister() {
   if (!validate()) return
   loading.value = true
   try {
-    await authStore.register({ username: form.username, password: form.password, can_create_module: form.can_create_module })
+    await authStore.register({ username: form.username, password: form.password, requested_gm: form.can_create_module })
     toast.success('注册成功，请登录')
     router.push('/login')
   } catch (error) {

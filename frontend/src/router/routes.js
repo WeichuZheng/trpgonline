@@ -20,7 +20,8 @@ const routes = [
       { path: 'modules/:id/resources', name: 'module-resources', component: () => import('@/views/ModuleResourcesView.vue') },
       { path: 'rooms', name: 'room-list', component: () => import('@/views/RoomListView.vue') },
       { path: 'gm/rooms', name: 'gm-room-list', component: () => import('@/views/GmRoomListView.vue') },
-      { path: 'rooms/:id/game', name: 'game-room', component: () => import('@/views/GameRoomView.vue') }
+      { path: 'rooms/:id/game', name: 'game-room', component: () => import('@/views/GameRoomView.vue') },
+      { path: 'admin', name: 'admin', component: () => import('@/views/AdminView.vue') }
     ]
   }
 ]

@@ -173,20 +173,23 @@ async def delete_module(
             detail="您不是该模组的拥有者"
         )
 
-    # 清理关联的上传文件
+    # 清理关联的上传文件（路径遍历防护）
     import os
     from backend.config import settings
+    upload_dir_real = os.path.realpath(settings.upload_dir)
     result = await db.execute(select(Resource).where(Resource.module_id == module_id))
     for r in result.scalars().all():
         if r.content and r.content.startswith("/uploads/"):
-            filepath = os.path.join(settings.upload_dir, r.content.replace("/uploads/", ""))
-            if os.path.isfile(filepath):
+            filename = r.content.replace("/uploads/", "").lstrip("/")
+            filepath = os.path.realpath(os.path.join(settings.upload_dir, filename))
+            if filepath.startswith(upload_dir_real) and os.path.isfile(filepath):
                 os.remove(filepath)
     result = await db.execute(select(Map).where(Map.module_id == module_id))
     for m in result.scalars().all():
         if m.image_url and m.image_url.startswith("/uploads/"):
-            filepath = os.path.join(settings.upload_dir, m.image_url.replace("/uploads/", ""))
-            if os.path.isfile(filepath):
+            filename = m.image_url.replace("/uploads/", "").lstrip("/")
+            filepath = os.path.realpath(os.path.join(settings.upload_dir, filename))
+            if filepath.startswith(upload_dir_real) and os.path.isfile(filepath):
                 os.remove(filepath)
 
     await db.delete(module)

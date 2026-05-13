@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const isGM = computed(() => user.value?.can_create_module === true)
+  const isAdmin = computed(() => user.value?.is_admin === true)
   const username = computed(() => user.value?.username || '')
 
   async function login(credentials) {
@@ -84,6 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isAuthenticated,
     isGM,
+    isAdmin,
     username,
     login,
     register,

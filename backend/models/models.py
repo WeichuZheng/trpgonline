@@ -21,6 +21,8 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     can_create_module = Column(Boolean, default=False)  # 可创建模组的权限
+    requested_gm = Column(Boolean, default=False)       # 已申请 GM 权限
+    is_admin = Column(Boolean, default=False)           # 管理员权限
     created_at = Column(DateTime, default=cst_now)
 
     # 关系

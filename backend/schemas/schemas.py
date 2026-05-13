@@ -9,11 +9,11 @@ from enum import Enum
 
 class UserBase(BaseModel):
     username: str = Field(min_length=2, max_length=50, pattern=r'^[a-zA-Z0-9_一-鿿]+$')
-    can_create_module: bool = False
+    requested_gm: bool = False
 
 
 class UserCreate(UserBase):
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserLogin(BaseModel):
@@ -25,10 +25,17 @@ class UserResponse(BaseModel):
     id: int
     username: str
     can_create_module: bool
+    is_admin: bool = False
+    requested_gm: bool = False
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserAdminUpdate(BaseModel):
+    can_create_module: Optional[bool] = None
+    is_admin: Optional[bool] = None
 
 
 class Token(BaseModel):

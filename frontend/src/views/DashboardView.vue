@@ -2,7 +2,10 @@
   <div class="dashboard">
     <div class="page-header">
       <h2>我的模组</h2>
-      <AppButton @click="showCreateModal = true" v-if="authStore.isGM">+ 创建新模组</AppButton>
+      <div class="page-header-actions">
+        <router-link to="/admin" v-if="authStore.isAdmin" class="admin-link">管理面板</router-link>
+        <AppButton @click="showCreateModal = true" v-if="authStore.isGM">+ 创建新模组</AppButton>
+      </div>
     </div>
 
     <div class="module-list">
@@ -135,6 +138,23 @@ async function handleCreateRoom() {
   font-size: 22px;
   color: var(--accent-gold);
   letter-spacing: 0.04em;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-link {
+  color: var(--accent-gold);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.admin-link:hover {
+  color: var(--accent-gold-bright);
 }
 
 .module-list {

@@ -92,6 +92,16 @@ def require_can_create_module(user: User) -> bool:
     return True
 
 
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """要求管理员权限"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    return current_user
+
+
 def require_gm_role(room, user: User) -> bool:
     """检查用户是否是房间GM"""
     if room.gm_id != user.id:

@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_file_size: int = 10 * 1024 * 1024  # 10MB
 
+    # 管理员
+    initial_admin_username: str = ""  # 首个管理员用户名，注册时自动获得 admin 权限
+
     # 运行环境
     debug: bool = True
     cors_origins: str = ""  # Comma-separated list of allowed origins for production

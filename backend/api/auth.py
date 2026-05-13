@@ -27,10 +27,17 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         )
 
     # 创建新用户
+    # 检查是否为配置的初始管理员
+    is_initial_admin = (
+        settings.initial_admin_username
+        and user_data.username == settings.initial_admin_username
+    )
     new_user = User(
         username=user_data.username,
         password_hash=get_password_hash(user_data.password),
-        can_create_module=user_data.can_create_module
+        requested_gm=user_data.requested_gm,
+        can_create_module=is_initial_admin,
+        is_admin=is_initial_admin
     )
     db.add(new_user)
     await db.commit()
@@ -66,19 +73,4 @@ async def login(
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
-    return current_user
-
-
-@router.post("/upgrade-to-gm", response_model=UserResponse)
-async def upgrade_to_gm(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """申请升级为 GM（仅限 debug 模式）"""
-    from backend.config import settings
-    if not settings.debug:
-        raise HTTPException(status_code=403, detail="此功能仅在开发模式可用")
-    current_user.can_create_module = True
-    await db.commit()
-    await db.refresh(current_user)
     return current_user
