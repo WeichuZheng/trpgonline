@@ -40,6 +40,9 @@ class Module(Base):
     max_characters = Column(Integer, default=20)  # 角色数上限（NPC+怪物）
     default_max_players = Column(Integer, default=8)  # 默认玩家数上限
     theme = Column(String(50), default="dark")  # 配色方案预设名称
+    chapters_config = Column(Text, default='[]')     # JSON 章节结构
+    current_chapter_index = Column(Integer, default=0)
+    current_scene_index = Column(Integer, default=0)
     created_at = Column(DateTime, default=cst_now)
     updated_at = Column(DateTime, default=cst_now, onupdate=cst_now)
 
@@ -49,6 +52,7 @@ class Module(Base):
     rooms = relationship("Room", back_populates="module", cascade="all, delete-orphan")
     maps = relationship("Map", back_populates="module", cascade="all, delete-orphan")
     character_templates = relationship("CharacterTemplate", back_populates="module", cascade="all, delete-orphan")
+    module_tasks = relationship("ModuleTask", cascade="all, delete-orphan")
 
 
 class ResourceType(enum.Enum):
@@ -124,6 +128,7 @@ class Room(Base):
     characters = relationship("CharacterCard", back_populates="room", cascade="all, delete-orphan")
     logs = relationship("GameLog", back_populates="room", cascade="all, delete-orphan")
     room_resources = relationship("RoomResource", back_populates="room", cascade="all, delete-orphan")
+    player_notes = relationship("PlayerNote", cascade="all, delete-orphan")
 
 
 class RoomParticipant(Base):
@@ -251,7 +256,7 @@ class PlayerNote(Base):
     updated_at = Column(DateTime, default=cst_now, onupdate=cst_now)
 
     # 关系
-    room = relationship("Room")
+    room = relationship("Room", back_populates="player_notes")
     user = relationship("User")
 
 
@@ -273,3 +278,41 @@ class GameLog(Base):
     # 关系
     room = relationship("Room", back_populates="logs")
     user = relationship("User")
+
+
+class ModuleTask(Base):
+    """模组任务板——任务定义"""
+    __tablename__ = "module_tasks"
+    __table_args__ = (
+        Index('idx_module_tasks_module_id', 'module_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    module_id = Column(Integer, ForeignKey("modules.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String(20), default="hidden")  # hidden / current / completed
+    exploration_percent = Column(Integer, default=5)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=cst_now)
+
+    module = relationship("Module", back_populates="module_tasks")
+    clocks = relationship("TaskClock", back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskClock(Base):
+    """关键事件时钟"""
+    __tablename__ = "task_clocks"
+    __table_args__ = (
+        Index('idx_task_clocks_task_id', 'task_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("module_tasks.id"), nullable=False)
+    total = Column(Integer, default=6)
+    increment_expr = Column(String(20), default="1d3")
+    current_value = Column(Integer, default=0)
+    is_expired = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=cst_now)
+
+    task = relationship("ModuleTask", back_populates="clocks")

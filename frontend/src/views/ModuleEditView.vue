@@ -21,6 +21,8 @@
         <button class="tab-btn" :class="{ active: activeTab === 'resources' }" @click="activeTab = 'resources'">资源管理</button>
         <button class="tab-btn" :class="{ active: activeTab === 'maps' }" @click="activeTab = 'maps'">地图管理</button>
         <button class="tab-btn" :class="{ active: activeTab === 'characters' }" @click="activeTab = 'characters'">角色模板</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'tasks' }" @click="activeTab = 'tasks'">📋 任务板</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'chapters' }" @click="activeTab = 'chapters'">📖 章节管理</button>
       </div>
 
       <!-- ====== 资源管理 Tab ====== -->
@@ -279,6 +281,120 @@
           </form>
         </AppCard>
       </template>
+
+      <!-- ====== 任务板 Tab ====== -->
+      <template v-if="activeTab === 'tasks'">
+        <AppCard title="任务板">
+          <template #header>
+            <div class="section-header">
+              <h3>任务管理</h3>
+              <AppButton size="small" @click="openNewTask">+ 新建任务</AppButton>
+            </div>
+          </template>
+          <p class="tab-hint">任务状态可在房间中由GM手动切换。关键事件时钟在聚光灯推进时自动累积。</p>
+
+          <div class="task-list">
+            <div v-for="task in taskList" :key="task.id" class="task-card">
+              <div class="task-header">
+                <span class="task-status-badge" :class="'status-' + task.status">
+                  {{ task.status === 'hidden' ? '🔒 隐藏' : task.status === 'current' ? '🔵 当前' : '✅ 已完成' }}
+                </span>
+                <span class="task-title">{{ task.title }}</span>
+                <span class="task-explore">{{ task.exploration_percent }}%</span>
+                <div class="task-actions">
+                  <AppButton size="small" variant="ghost" @click="editTask(task)">编辑</AppButton>
+                  <AppButton size="small" variant="ghost" @click="deleteTaskItem(task.id)">删除</AppButton>
+                </div>
+              </div>
+              <div v-if="task.clocks && task.clocks.length > 0" class="task-clocks-row">
+                <span class="clock-mini" v-for="c in task.clocks" :key="c.id">
+                  ⏱ {{ c.current_value }}/{{ c.total }} ({{ c.increment_expr }})
+                  <span v-if="c.is_expired" class="clock-expired">超时</span>
+                </span>
+              </div>
+            </div>
+            <div v-if="taskList.length === 0" class="empty-state">暂无任务，点击上方按钮创建</div>
+          </div>
+        </AppCard>
+
+        <!-- 任务编辑弹窗 -->
+        <AppModal v-model="showTaskForm" :title="editingTaskId ? '编辑任务' : '新建任务'" size="small">
+          <form @submit.prevent="saveTask">
+            <AppInput v-model="taskForm.title" label="任务标题" required />
+            <div class="form-row">
+              <label class="form-label">探索度 %</label>
+              <input v-model.number="taskForm.exploration_percent" class="add-input" type="number" min="0" max="100" style="width:80px" />
+            </div>
+            <div class="form-row">
+              <label class="form-label">初始状态</label>
+              <select v-model="taskForm.status" class="add-input">
+                <option value="hidden">🔒 隐藏</option>
+                <option value="current">🔵 当前</option>
+                <option value="completed">✅ 已完成</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">排序</label>
+              <input v-model.number="taskForm.sort_order" class="add-input" type="number" style="width:80px" />
+            </div>
+
+            <!-- 时钟管理 -->
+            <div class="clocks-section">
+              <div class="clocks-header">
+                <span class="form-label">关键事件时钟</span>
+                <AppButton size="small" variant="ghost" @click="addClock">+ 添加时钟</AppButton>
+              </div>
+              <div v-for="(c, i) in taskForm.clocks" :key="i" class="clock-form-row">
+                <span>总量</span>
+                <input v-model.number="c.total" class="add-input" type="number" min="1" style="width:60px" />
+                <span>增量</span>
+                <input v-model="c.increment_expr" class="add-input" placeholder="1d3" style="width:80px" />
+                <AppButton size="small" variant="ghost" @click="taskForm.clocks.splice(i, 1)">✕</AppButton>
+              </div>
+            </div>
+          </form>
+          <template #footer>
+            <AppButton variant="secondary" @click="showTaskForm = false">取消</AppButton>
+            <AppButton @click="saveTask">保存</AppButton>
+          </template>
+        </AppModal>
+      </template>
+
+      <!-- ====== 章节管理 Tab ====== -->
+      <template v-if="activeTab === 'chapters'">
+        <AppCard title="章节管理">
+          <p class="tab-hint">配置章节和幕的结构。第一条「模组名」默认为模组标题，不可删除。</p>
+
+          <!-- 模组名 (root) -->
+          <div class="chapter-root-card">
+            <span class="chapter-root-icon">📖</span>
+            <span class="chapter-root-label">模组名</span>
+            <input :value="module?.title" class="add-input" disabled style="flex:1" />
+          </div>
+
+          <!-- 章列表 -->
+          <div v-for="(ch, ci) in chaptersList" :key="ci" class="chapter-card">
+            <div class="chapter-card-header">
+              <span class="chapter-num">第{{ ch.num }}章</span>
+              <input v-model="ch.name" class="chapter-name-input" placeholder="章名" />
+              <AppButton size="small" variant="ghost" @click="deleteChapter(ci)">🗑</AppButton>
+            </div>
+            <!-- 幕列表 -->
+            <div class="scenes-list">
+              <div v-for="(sc, si) in ch.scenes" :key="si" class="scene-row">
+                <span class="scene-num">第{{ sc.num }}幕</span>
+                <input v-model="sc.name" class="scene-name-input" placeholder="幕名" />
+                <AppButton size="small" variant="ghost" @click="deleteScene(ci, si)">✕</AppButton>
+              </div>
+              <AppButton size="small" variant="ghost" @click="addScene(ci)">+ 添加幕</AppButton>
+            </div>
+          </div>
+          <AppButton @click="addChapter">+ 添加章</AppButton>
+          <div style="margin-top:16px">
+            <AppButton @click="saveChapters">💾 保存章节配置</AppButton>
+          </div>
+        </AppCard>
+      </template>
     </div>
 
     <!-- Delete Resource Confirm -->
@@ -327,6 +443,7 @@ import { useModulesStore } from '@/stores/modules'
 import { resourceService } from '@/services/resourceService'
 import mapService from '@/services/mapService'
 import { characterTemplateService } from '@/services/characterTemplateService'
+import { taskService } from '@/services/taskService'
 import AppButton from '@/components/common/AppButton.vue'
 import AppCard from '@/components/common/AppCard.vue'
 import AppInput from '@/components/common/AppInput.vue'
@@ -344,6 +461,14 @@ const module = ref(null)
 const resources = ref([])
 const maps = ref([])
 const characterTemplates = ref([])
+const taskList = ref([])
+const showTaskForm = ref(false)
+const editingTaskId = ref(null)
+const taskForm = reactive({
+  title: '', exploration_percent: 5, status: 'hidden', sort_order: 0,
+  clocks: []
+})
+const chaptersList = reactive([])
 const loading = ref(false)
 const activeTab = ref('resources')
 const showResourceForm = ref(false)
@@ -450,9 +575,11 @@ onMounted(async () => {
   const moduleId = route.params.id
   try {
     module.value = await modulesStore.fetchModule(moduleId)
+    loadChapters()
     await fetchResources()
     await fetchMaps()
     await fetchCharacterTemplates()
+    await fetchTasks()
   } catch (error) {
     toast.error('加载失败')
   }
@@ -489,6 +616,60 @@ function goBack() {
   router.push('/dashboard')
 }
 
+function loadChapters() {
+  chaptersList.length = 0
+  if (module.value?.chapters_config) {
+    try {
+      const parsed = JSON.parse(module.value.chapters_config)
+      if (Array.isArray(parsed)) {
+        for (const ch of parsed) {
+          chaptersList.push({
+            num: ch.num || 1,
+            name: ch.name || '',
+            scenes: (ch.scenes || []).map(s => ({ num: s.num || 1, name: s.name || '' }))
+          })
+        }
+      }
+    } catch {}
+  }
+}
+
+function addChapter() {
+  const nextNum = chaptersList.length > 0 ? Math.max(...chaptersList.map(c => c.num)) + 1 : 1
+  chaptersList.push({ num: nextNum, name: '', scenes: [] })
+}
+
+function deleteChapter(index) {
+  chaptersList.splice(index, 1)
+}
+
+function addScene(chapterIndex) {
+  const ch = chaptersList[chapterIndex]
+  const nextNum = ch.scenes.length > 0 ? Math.max(...ch.scenes.map(s => s.num)) + 1 : 1
+  ch.scenes.push({ num: nextNum, name: '' })
+}
+
+function deleteScene(chapterIndex, sceneIndex) {
+  chaptersList[chapterIndex].scenes.splice(sceneIndex, 1)
+}
+
+async function saveChapters() {
+  try {
+    const config = chaptersList.map(ch => ({
+      num: ch.num,
+      name: ch.name,
+      scenes: ch.scenes.map(s => ({ num: s.num, name: s.name }))
+    }))
+    await modulesStore.updateModule(module.value.id, {
+      chapters_config: JSON.stringify(config)
+    })
+    if (module.value) module.value.chapters_config = JSON.stringify(config)
+    toast.success('章节配置已保存')
+  } catch (e) {
+    toast.error('保存失败')
+  }
+}
+
 async function saveTheme(theme) {
   try {
     await modulesStore.updateModule(module.value.id, { theme })
@@ -496,6 +677,78 @@ async function saveTheme(theme) {
     toast.success('推荐主题已更新')
   } catch (e) {
     toast.error('主题更新失败')
+  }
+}
+
+// ====== Task Board ======
+
+async function fetchTasks() {
+  try {
+    taskList.value = await taskService.getModuleTasks(route.params.id)
+  } catch {}
+}
+
+function openNewTask() {
+  editingTaskId.value = null
+  Object.assign(taskForm, { title: '', exploration_percent: 5, status: 'hidden', sort_order: taskList.value.length, clocks: [] })
+  showTaskForm.value = true
+}
+
+function editTask(task) {
+  editingTaskId.value = task.id
+  const clocks = (task.clocks || []).map(c => ({ id: c.id, total: c.total, increment_expr: c.increment_expr, current_value: c.current_value || 0, is_expired: c.is_expired || false }))
+  Object.assign(taskForm, { title: task.title, exploration_percent: task.exploration_percent, status: task.status, sort_order: task.sort_order, clocks })
+  showTaskForm.value = true
+}
+
+function addClock() {
+  taskForm.clocks.push({ total: 6, increment_expr: '1d3' })
+}
+
+async function saveTask() {
+  try {
+    const payload = {
+      title: taskForm.title, exploration_percent: taskForm.exploration_percent,
+      status: taskForm.status, sort_order: taskForm.sort_order
+    }
+    if (editingTaskId.value) {
+      const updated = await taskService.updateTask(editingTaskId.value, payload)
+      // Sync clocks: delete removed, create new, update existing
+      const savedClockIds = taskForm.clocks.filter(c => c.id).map(c => c.id)
+      if (updated.clocks) {
+        for (const c of updated.clocks) {
+          if (!savedClockIds.includes(c.id)) await taskService.deleteClock(c.id)
+        }
+      }
+      for (const c of taskForm.clocks) {
+        if (c.id) {
+          await taskService.updateClock(c.id, { total: c.total, increment_expr: c.increment_expr })
+        } else {
+          await taskService.createClock(editingTaskId.value, { total: c.total, increment_expr: c.increment_expr })
+        }
+      }
+    } else {
+      const created = await taskService.createTask(route.params.id, payload)
+      for (const c of taskForm.clocks) {
+        await taskService.createClock(created.id, { total: c.total, increment_expr: c.increment_expr })
+      }
+    }
+    showTaskForm.value = false
+    await fetchTasks()
+    toast.success('任务已保存')
+  } catch (e) {
+    toast.error('保存失败')
+  }
+}
+
+async function deleteTaskItem(taskId) {
+  if (!confirm('确定删除此任务？')) return
+  try {
+    await taskService.deleteTask(taskId)
+    await fetchTasks()
+    toast.success('任务已删除')
+  } catch (e) {
+    toast.error('删除失败')
   }
 }
 
@@ -1005,4 +1258,38 @@ p { color: var(--text-secondary); }
 .tpl-add-btn:disabled { opacity: 0.4; cursor: default; }
 .tpl-checkbox-sm { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 .tpl-checkbox-sm input { accent-color: var(--accent-gold); }
+
+/* ====== Task Board ====== */
+.task-list { display: flex; flex-direction: column; gap: 8px; }
+.task-card { padding: 10px 14px; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
+.task-header { display: flex; align-items: center; gap: 10px; }
+.task-status-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+.task-status-badge.status-hidden { background: rgba(156,163,175,0.15); color: #9ca3af; }
+.task-status-badge.status-current { background: var(--color-info-dim); color: var(--color-info); }
+.task-status-badge.status-completed { background: var(--color-success-dim); color: var(--color-success); }
+.task-title { flex: 1; font-weight: 600; font-size: 14px; color: var(--text-primary); }
+.task-chapter { font-size: 11px; color: var(--text-muted); }
+.task-explore { font-size: 11px; color: var(--accent-gold); font-weight: 600; }
+.task-actions { display: flex; gap: 4px; }
+.task-clocks-row { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+.clock-mini { font-size: 11px; padding: 2px 8px; border-radius: 8px; background: rgba(0,0,0,0.2); color: var(--text-muted); }
+.clock-expired { color: var(--color-danger); font-weight: 600; }
+.clocks-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.clocks-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.clock-form-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 12px; color: var(--text-muted); }
+.form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.form-label { font-size: 12px; color: var(--text-muted); min-width: 80px; }
+
+/* ====== Chapter Management ====== */
+.chapter-root-card { display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-card); border: 1px solid var(--accent-gold); border-radius: var(--radius-md); margin-bottom: 12px; }
+.chapter-root-icon { font-size: 20px; }
+.chapter-root-label { font-size: 12px; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.chapter-card { margin-bottom: 12px; padding: 12px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.chapter-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.chapter-num { font-size: 14px; font-weight: 700; color: var(--accent-gold); white-space: nowrap; }
+.chapter-name-input { flex: 1; padding: 4px 8px; font-size: 14px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); }
+.scenes-list { margin-left: 24px; display: flex; flex-direction: column; gap: 4px; }
+.scene-row { display: flex; align-items: center; gap: 8px; }
+.scene-num { font-size: 12px; color: var(--text-muted); white-space: nowrap; min-width: 50px; }
+.scene-name-input { flex: 1; padding: 3px 8px; font-size: 13px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); }
 </style>

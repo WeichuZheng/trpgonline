@@ -38,6 +38,10 @@ async def get_modules(
             description=m.description,
             max_characters=m.max_characters or 20,
             default_max_players=m.default_max_players or 8,
+            theme=m.theme or "dark",
+            chapters_config=m.chapters_config or "[]",
+            current_chapter_index=m.current_chapter_index or 0,
+            current_scene_index=m.current_scene_index or 0,
             created_at=m.created_at,
             updated_at=m.updated_at,
             owner_username=current_user.username
@@ -106,6 +110,10 @@ async def get_module(
         description=module.description,
         max_characters=module.max_characters or 20,
         default_max_players=module.default_max_players or 8,
+        theme=module.theme or "dark",
+        chapters_config=module.chapters_config or "[]",
+        current_chapter_index=module.current_chapter_index or 0,
+        current_scene_index=module.current_scene_index or 0,
         created_at=module.created_at,
         updated_at=module.updated_at,
         owner_username=owner.username
@@ -135,14 +143,8 @@ async def update_module(
             detail="您不是该模组的拥有者"
         )
 
-    if module_data.title is not None:
-        module.title = module_data.title
-    if module_data.description is not None:
-        module.description = module_data.description
-    if module_data.max_characters is not None:
-        module.max_characters = module_data.max_characters
-    if module_data.default_max_players is not None:
-        module.default_max_players = module_data.default_max_players
+    for field, value in module_data.model_dump(exclude_unset=True).items():
+        setattr(module, field, value)
 
     await db.commit()
     await db.refresh(module)

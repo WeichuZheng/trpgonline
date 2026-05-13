@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
 from backend.database import init_db
-from backend.api import auth, modules, resources, rooms, maps
+from backend.api import auth, modules, resources, rooms, maps, tasks
 from backend.websocket import websocket_endpoint, _heartbeat_loop
 
 
@@ -67,6 +67,7 @@ app.include_router(resources.router)
 app.include_router(rooms.rooms_list_router)
 app.include_router(rooms.rooms_router)
 app.include_router(maps.router)
+app.include_router(tasks.router)
 
 # WebSocket 端点
 app.websocket("/ws/room/{room_id}")(websocket_endpoint)

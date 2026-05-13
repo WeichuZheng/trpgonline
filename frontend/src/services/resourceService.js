@@ -10,7 +10,6 @@ export const resourceService = {
     const formData = new FormData()
     formData.append('type', resourceData.type)
     formData.append('title', resourceData.title)
-    formData.append('display_type', resourceData.display_type || 'story')
 
     if (resourceData.type === 'image' && resourceData.file) {
       formData.append('file', resourceData.file)

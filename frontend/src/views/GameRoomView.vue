@@ -128,6 +128,11 @@
               <span class="doc-nav-icon">📝</span>
               <span class="doc-nav-title">我的笔记</span>
             </div>
+            <div class="doc-nav-item taskboard-nav-item" :class="{ active: activeDocId === 'taskboard' }"
+              @click="activeDocId = 'taskboard'">
+              <span class="doc-nav-icon">📋</span>
+              <span class="doc-nav-title">任务板</span>
+            </div>
             <div v-for="resource in visibleResources" :key="resource.id"
               class="doc-nav-item" :class="{ active: activeDocId === resource.id }"
               @click="activeDocId = resource.id">
@@ -151,6 +156,77 @@
                 </div>
               </div>
               <ResourceEditor v-model="notebookContent" placeholder="在这里记录你的私人笔记..." />
+            </template>
+            <template v-else-if="activeDocId === 'taskboard'">
+              <div class="taskboard-view">
+                <!-- 仪表盘 -->
+                <div class="tb-dashboard">
+                  <div class="tb-dash-item" v-if="currentChapter">
+                    <span class="tb-dash-label">当前章节</span>
+                    <span class="tb-dash-value">{{ currentChapter }}</span>
+                    <template v-if="isGM">
+                      <AppButton size="small" variant="ghost" @click="changeScene(-1)">◀ 上一幕</AppButton>
+                      <AppButton size="small" variant="ghost" @click="changeScene(1)">下一幕 ▶</AppButton>
+                    </template>
+                  </div>
+                  <div class="tb-dash-item">
+                    <span class="tb-dash-label">剧情探索度</span>
+                    <div class="tb-explore-bar">
+                      <div class="tb-explore-fill" :style="{ width: explorationTotal + '%' }"></div>
+                    </div>
+                    <span class="tb-dash-value">{{ explorationTotal }}%</span>
+                  </div>
+                </div>
+
+                <!-- 关键事件时钟 -->
+                <div v-if="activeClocks.length > 0" class="tb-clocks-section">
+                  <div class="tb-section-title">
+                    关键事件时钟
+                    <AppButton v-if="isGM" size="small" @click="advanceAllClocks" :disabled="advancingClocks">
+                      {{ advancingClocks ? '推进中...' : '🔦 聚光灯推进' }}
+                    </AppButton>
+                  </div>
+                  <div class="tb-clocks-grid">
+                    <div v-for="clock in activeClocks" :key="clock.id" class="tb-clock-card" :class="{ expired: clock.is_expired }">
+                      <div class="tb-clock-ring" :style="{ '--pct': (clock.current_value / clock.total * 100) }">
+                        <svg viewBox="0 0 64 64" class="tb-clock-svg">
+                          <circle cx="32" cy="32" r="28" fill="none" stroke="var(--border-default)" stroke-width="4" />
+                          <circle cx="32" cy="32" r="28" fill="none"
+                            :stroke="clock.is_expired ? 'var(--color-danger)' : 'var(--accent-gold)'"
+                            stroke-width="4" stroke-linecap="round"
+                            :stroke-dasharray="clock.current_value / clock.total * 175.93 + ' 175.93'"
+                            transform="rotate(-90 32 32)" />
+                        </svg>
+                        <span class="tb-clock-text">{{ clock.current_value }}/{{ clock.total }}</span>
+                      </div>
+                      <div class="tb-clock-info">
+                        <span class="tb-clock-task">{{ clock.task_title }}</span>
+                        <span class="tb-clock-expr">+{{ clock.increment_expr }}/聚光灯</span>
+                        <span v-if="clock.is_expired" class="tb-clock-expired-label">⚠ 超时</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-state">暂无激活的时钟</div>
+
+                <!-- 任务清单 -->
+                <div class="tb-section-title">任务清单</div>
+                <div v-for="task in sortedTasks" :key="task.id" class="tb-task-item" :class="'tb-status-' + task.status">
+                  <span class="tb-task-status-icon">
+                    {{ task.status === 'hidden' ? '🔒' : task.status === 'current' ? '🔵' : '✅' }}
+                  </span>
+                  <div class="tb-task-body">
+                    <span class="tb-task-name">{{ task.title }}</span>
+                    <span class="tb-task-exp">探索度 {{ task.exploration_percent }}%</span>
+                  </div>
+                  <select v-if="isGM" :value="task.status" @change="changeTaskStatus(task.id, $event.target.value)" class="tb-status-select">
+                    <option value="hidden">🔒 隐藏</option>
+                    <option value="current">🔵 当前</option>
+                    <option value="completed">✅ 已完成</option>
+                  </select>
+                </div>
+                <div v-if="gameStore.tasks.length === 0" class="empty-state">暂无任务</div>
+              </div>
             </template>
             <template v-else-if="activeDoc">
               <div class="doc-content-header">
@@ -356,6 +432,8 @@ import { characterService } from '@/services/characterService'
 import { diceService } from '@/services/diceService'
 import { characterTemplateService } from '@/services/characterTemplateService'
 import mapService from '@/services/mapService'
+import { taskService } from '@/services/taskService'
+import { useModulesStore } from '@/stores/modules'
 import AppButton from '@/components/common/AppButton.vue'
 import AppCard from '@/components/common/AppCard.vue'
 import AppInput from '@/components/common/AppInput.vue'
@@ -373,6 +451,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const roomsStore = useRoomsStore()
 const gameStore = useGameStore()
+const modulesStore = useModulesStore()
 const toast = inject('toast')
 
 const currentRoom = ref(null)
@@ -451,6 +530,53 @@ const selectedCharacterName = computed(() => {
   return char?.name || null
 })
 
+const advancingClocks = ref(false)
+
+// Task board computed
+const sortedTasks = computed(() => [...gameStore.tasks].sort((a, b) => a.sort_order - b.sort_order))
+
+const chaptersConfig = computed(() => {
+  try { return JSON.parse(currentRoom.value?.module_chapters_config || '[]') }
+  catch { return [] }
+})
+
+const currentChapter = computed(() => {
+  const room = currentRoom.value
+  if (!room) return null
+  const ci = room.module_current_chapter_index || 0
+  const si = room.module_current_scene_index || 0
+  const chapters = chaptersConfig.value
+
+  if (chapters.length === 0 || ci >= chapters.length) return room.name || '模组名'
+  const ch = chapters[ci]
+  let text = `第${ch.num}章`
+  if (ch.name) text += `：${ch.name}`
+  if (ch.scenes && si < ch.scenes.length) {
+    const sc = ch.scenes[si]
+    text += ` / 第${sc.num}幕`
+    if (sc.name) text += `：${sc.name}`
+  }
+  return text
+})
+
+const explorationTotal = computed(() => {
+  return sortedTasks.value
+    .filter(t => t.status === 'completed')
+    .reduce((sum, t) => sum + (t.exploration_percent || 0), 0)
+})
+
+const activeClocks = computed(() => {
+  const clocks = []
+  for (const task of gameStore.tasks) {
+    if (task.status !== 'current') continue
+    if (!task.clocks) continue
+    for (const c of task.clocks) {
+      clocks.push({ ...c, task_title: task.title })
+    }
+  }
+  return clocks
+})
+
 const logContainer = ref(null)
 
 watch(() => gameStore.gameLogs.length, async () => {
@@ -505,6 +631,12 @@ async function loadGameState() {
   // Load online users
   try {
     onlineUsers.value = await roomService.getOnlineUsers(roomId)
+  } catch {}
+
+  // Load tasks
+  try {
+    const tasks = await taskService.getModuleTasks(currentRoom.value.module_id)
+    gameStore.setTasks(Array.isArray(tasks) ? tasks : [])
   } catch {}
 
   // Load character templates for GM quick-add
@@ -638,6 +770,23 @@ function handleWsMessage(data) {
       break
     case 'online_users':
       onlineUsers.value = data.users || []
+      break
+    case 'clock_advanced':
+      gameStore.addGameLog({ action: 'custom', detail: `⏱ ${data.task_title}: 时钟推进 +${data.increment} → ${data.current}/${data.total}${data.expired ? ' ⚠超时!' : ''}` })
+      // Update clock in-place
+      for (const task of gameStore.tasks) {
+        if (task.clocks) {
+          for (const c of task.clocks) {
+            if (c.id === data.clock_id) {
+              c.current_value = data.current
+              c.is_expired = data.expired
+            }
+          }
+        }
+      }
+      break
+    case 'task_updated':
+      if (data.task) gameStore.updateTask(data.task_id, data.task)
       break
   }
 }
@@ -828,6 +977,80 @@ function rollExprDice() {
 function rollPreset(expr) {
   diceExpr.value = expr
   doRoll(expr, diceReason.value || null)
+}
+
+async function changeTaskStatus(taskId, newStatus) {
+  try {
+    const updated = await taskService.updateTask(taskId, { status: newStatus })
+    gameStore.updateTask(taskId, updated)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'task_updated', task_id: taskId, task: updated }))
+    }
+  } catch (e) {
+    toast.error('状态更新失败')
+  }
+}
+
+async function changeScene(delta) {
+  const room = currentRoom.value
+  if (!room) return
+  const chapters = chaptersConfig.value
+  if (chapters.length === 0) { toast.info('请先在模组编辑中配置章节'); return }
+
+  let ci = room.module_current_chapter_index || 0
+  let si = room.module_current_scene_index || 0
+
+  if (delta > 0) {
+    // 前进
+    const ch = chapters[ci]
+    if (ch && ch.scenes && si + 1 < ch.scenes.length) {
+      si++
+    } else if (ci + 1 < chapters.length) {
+      ci++
+      si = 0
+    } else {
+      toast.info('已到结局')
+      return
+    }
+  } else {
+    // 后退
+    if (si > 0) {
+      si--
+    } else if (ci > 0) {
+      ci--
+      const prevCh = chapters[ci]
+      si = (prevCh.scenes && prevCh.scenes.length > 0) ? prevCh.scenes.length - 1 : 0
+    } else {
+      toast.info('已是第一幕')
+      return
+    }
+  }
+
+  try {
+    await modulesStore.updateModule(room.module_id, {
+      current_chapter_index: ci, current_scene_index: si
+    })
+    currentRoom.value.module_current_chapter_index = ci
+    currentRoom.value.module_current_scene_index = si
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'chapter_changed' }))
+  } catch (e) { toast.error('操作失败') }
+}
+
+async function advanceAllClocks() {
+  advancingClocks.value = true
+  try {
+    const result = await taskService.advanceClocks(route.params.id)
+    if (result.results) {
+      toast.success(`已推进 ${result.results.length} 个时钟`)
+      // Reload tasks to get updated clock values
+      const tasks = await taskService.getModuleTasks(currentRoom.value.module_id)
+      gameStore.setTasks(Array.isArray(tasks) ? tasks : [])
+    }
+  } catch (e) {
+    toast.error('推进失败')
+  } finally {
+    advancingClocks.value = false
+  }
 }
 
 function openCharacterForm() {
@@ -1783,4 +2006,38 @@ function startResizeLeft(e) {
     padding: 12px 16px;
   }
 }
+
+/* ====== Task Board ====== */
+.taskboard-nav-item { border-bottom: 1px dashed var(--border-default); margin-bottom: 4px; font-weight: 500; }
+.taskboard-view { color: var(--text-primary); }
+.tb-dashboard { display: flex; gap: 24px; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 16px; }
+.tb-dash-item { display: flex; align-items: center; gap: 8px; }
+.tb-dash-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.tb-dash-value { font-size: 16px; font-weight: 600; color: var(--accent-gold); }
+.tb-explore-bar { width: 120px; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+.tb-explore-fill { height: 100%; background: linear-gradient(90deg, var(--accent-gold), var(--accent-gold-bright)); border-radius: 4px; transition: width 0.5s ease; }
+.tb-section-title { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-primary); }
+.tb-clocks-section { margin-bottom: 20px; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
+.tb-clocks-grid { display: flex; gap: 16px; flex-wrap: wrap; }
+.tb-clock-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bg-secondary); border-radius: var(--radius-md); }
+.tb-clock-card.expired { border: 1px solid var(--color-danger); }
+.tb-clock-ring { width: 48px; height: 48px; position: relative; flex-shrink: 0; }
+.tb-clock-svg { width: 48px; height: 48px; }
+.tb-clock-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text-primary); }
+.tb-clock-info { display: flex; flex-direction: column; }
+.tb-clock-task { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.tb-clock-expr { font-size: 11px; color: var(--text-muted); }
+.tb-clock-expired-label { font-size: 11px; color: var(--color-danger); font-weight: 600; }
+.tb-chapter-group { margin-bottom: 12px; }
+.tb-chapter-header { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-gold); padding: 4px 0; margin-bottom: 4px; border-bottom: 1px solid var(--border-subtle); }
+.tb-task-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 2px; }
+.tb-task-item.tb-status-hidden { opacity: 0.5; }
+.tb-task-item.tb-status-current { background: var(--color-info-dim); border-left: 3px solid var(--color-info); }
+.tb-task-item.tb-status-completed { opacity: 0.7; text-decoration: line-through; }
+.tb-task-status-icon { font-size: 14px; flex-shrink: 0; }
+.tb-task-body { flex: 1; min-width: 0; }
+.tb-task-name { display: block; font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.tb-task-scene { display: block; font-size: 11px; color: var(--text-muted); }
+.tb-task-exp { display: block; font-size: 10px; color: var(--accent-gold); }
+.tb-status-select { padding: 2px 4px; font-size: 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-secondary); cursor: pointer; }
 </style>

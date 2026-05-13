@@ -55,12 +55,18 @@ class ModuleUpdate(BaseModel):
     max_characters: Optional[int] = None
     default_max_players: Optional[int] = None
     theme: Optional[str] = None
+    chapters_config: Optional[str] = None
+    current_chapter_index: Optional[int] = None
+    current_scene_index: Optional[int] = None
 
 
 class ModuleResponse(ModuleBase):
     id: int
     owner_id: int
     theme: str = "dark"
+    chapters_config: str = "[]"
+    current_chapter_index: int = 0
+    current_scene_index: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -172,6 +178,9 @@ class RoomResponse(RoomBase):
     current_players: Optional[int] = None
     max_players: int = 8
     module_theme: Optional[str] = None
+    module_chapters_config: Optional[str] = None
+    module_current_chapter_index: int = 0
+    module_current_scene_index: int = 0
 
     class Config:
         from_attributes = True
@@ -460,6 +469,64 @@ class CharacterTemplateResponse(CharacterTemplateBase):
     id: int
     module_id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============ 任务板 schemas ============
+
+class TaskClockCreate(BaseModel):
+    total: int = 6
+    increment_expr: str = "1d3"
+
+
+class TaskClockUpdate(BaseModel):
+    total: Optional[int] = None
+    increment_expr: Optional[str] = None
+    current_value: Optional[int] = None
+    is_expired: Optional[bool] = None
+
+
+class TaskClockResponse(BaseModel):
+    id: int
+    task_id: int
+    total: int
+    increment_expr: str
+    current_value: int
+    is_expired: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ModuleTaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    status: str = "hidden"
+    exploration_percent: int = 5
+    sort_order: int = 0
+
+
+class ModuleTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    exploration_percent: Optional[int] = None
+    sort_order: Optional[int] = None
+
+
+class ModuleTaskResponse(BaseModel):
+    id: int
+    module_id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    exploration_percent: int
+    sort_order: int
+    created_at: datetime
+    clocks: List[TaskClockResponse] = []
 
     class Config:
         from_attributes = True

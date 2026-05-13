@@ -11,7 +11,7 @@ from backend.database import get_db
 from backend.models.models import User, Module, Resource, ResourceType
 from backend.schemas.schemas import (
     ResourceCreate, ResourceUpdate, ResourceResponse,
-    ResourceToggleVisible, ResourceTypeEnum, DisplayTypeEnum
+    ResourceToggleVisible, ResourceTypeEnum
 )
 from backend.auth import get_current_user
 
@@ -57,7 +57,6 @@ async def create_resource(
     module_id: int,
     title: str = Form(...),
     type: ResourceTypeEnum = Form(...),
-    display_type: DisplayTypeEnum = Form(DisplayTypeEnum.STORY),
     content: str = Form(None),
     file: UploadFile = File(None),
     current_user: User = Depends(get_current_user),
@@ -119,7 +118,6 @@ async def create_resource(
         type=ResourceType(type.value),
         title=title,
         content=file_url if type == ResourceTypeEnum.IMAGE else text_content,
-        display_type=display_type.value,
         default_visible=False
     )
     db.add(new_resource)
@@ -153,8 +151,6 @@ async def update_resource(
         resource.title = resource_data.title
     if resource_data.content is not None:
         resource.content = resource_data.content
-    if resource_data.display_type is not None:
-        resource.display_type = resource_data.display_type.value
     if resource_data.default_visible is not None:
         resource.default_visible = resource_data.default_visible
 
@@ -214,11 +210,12 @@ async def delete_resource(
             detail="您不是该资源的上传者"
         )
 
-    # 如果是图片，删除文件
+    # 如果是图片，删除文件 (H1 fix: resolve and verify path stays within uploads dir)
     if resource.type == ResourceType.IMAGE and resource.content:
         filename = resource.content.replace("/uploads/", "")
-        file_path = os.path.join(settings.upload_dir, filename)
-        if os.path.exists(file_path):
+        file_path = os.path.realpath(os.path.join(settings.upload_dir, filename))
+        upload_dir_real = os.path.realpath(settings.upload_dir)
+        if file_path.startswith(upload_dir_real) and os.path.exists(file_path):
             os.remove(file_path)
 
     await db.delete(resource)

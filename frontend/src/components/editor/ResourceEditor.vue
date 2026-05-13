@@ -21,6 +21,7 @@ import FontFamily from '@tiptap/extension-font-family'
 import Placeholder from '@tiptap/extension-placeholder'
 import { VisibilityExtension } from './VisibilityExtension.js'
 import { FontSize } from './FontSizeExtension.js'
+import { ColumnLayout, Column } from './ColumnLayoutExtension.js'
 import EditorToolbar from './EditorToolbar.vue'
 import api from '@/services/api'
 
@@ -47,6 +48,8 @@ const editor = useEditor({
     FontSize,
     Placeholder.configure({ placeholder: props.placeholder }),
     VisibilityExtension,
+    ColumnLayout,
+    Column,
   ],
   onUpdate: ({ editor }) => {
     const json = editor.getJSON()

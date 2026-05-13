@@ -57,7 +57,7 @@ async def login(
     # 创建 token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.username, "user_id": user.id},
         expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -74,8 +74,10 @@ async def upgrade_to_gm(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """申请升级为 GM（演示用，生产环境应该有审核机制）"""
-    # 这里简化为用户可以自行升级，生产环境应该需要审核
+    """申请升级为 GM（仅限 debug 模式）"""
+    from backend.config import settings
+    if not settings.debug:
+        raise HTTPException(status_code=403, detail="此功能仅在开发模式可用")
     current_user.can_create_module = True
     await db.commit()
     await db.refresh(current_user)

@@ -14,6 +14,7 @@ export const useGameStore = defineStore('game', () => {
   const activeMap = ref(null)
   const mapUnits = ref([])
   const playerNote = ref(null)
+  const tasks = ref([])
 
   const visibleResources = computed(() => resources.value.filter(r => r.is_shown))
   const hiddenResources = computed(() => resources.value.filter(r => !r.is_shown))
@@ -128,6 +129,15 @@ export const useGameStore = defineStore('game', () => {
     playerNote.value = note
   }
 
+  function setTasks(data) {
+    tasks.value = data
+  }
+
+  function updateTask(taskId, updates) {
+    const task = tasks.value.find(t => t.id === taskId)
+    if (task) Object.assign(task, updates)
+  }
+
   function clearGame() {
     roomId.value = null
     resources.value = []
@@ -140,6 +150,7 @@ export const useGameStore = defineStore('game', () => {
     activeMap.value = null
     mapUnits.value = []
     playerNote.value = null
+    tasks.value = []
   }
 
   return {
@@ -177,6 +188,9 @@ export const useGameStore = defineStore('game', () => {
     removeMapUnit,
     playerNote,
     setPlayerNote,
+    tasks,
+    setTasks,
+    updateTask,
     clearGame
   }
 })

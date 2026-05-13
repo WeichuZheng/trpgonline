@@ -65,6 +65,7 @@ import FontFamily from '@tiptap/extension-font-family'
 import { CustomImage } from './ImageExtension.js'
 import { FontSize } from './FontSizeExtension.js'
 import { VisibilityExtension, VISIBILITY_VISIBLE, VISIBILITY_GM_ONLY, VISIBILITY_HIDDEN } from './VisibilityExtension.js'
+import { ColumnLayout, Column } from './ColumnLayoutExtension.js'
 
 const props = defineProps({
   content: { type: String, default: '' },
@@ -86,6 +87,8 @@ const extensions = [
   FontFamily,
   FontSize,
   VisibilityExtension,
+  ColumnLayout,
+  Column,
 ]
 
 // --- Lightbox ---

@@ -115,6 +115,9 @@ async def get_all_rooms(
                 created_at=room.created_at,
                 module_title=module_title,
                 module_theme=module.theme if module else None,
+                module_chapters_config=module.chapters_config if module else "[]",
+                module_current_chapter_index=module.current_chapter_index if module else 0,
+                module_current_scene_index=module.current_scene_index if module else 0,
                 gm_username=gm_username,
                 current_players=current_players,
                 max_players=room.max_players or 8
@@ -163,6 +166,9 @@ async def get_gm_rooms(
                 created_at=room.created_at,
                 module_title=module_title,
                 module_theme=module.theme if module else None,
+                module_chapters_config=module.chapters_config if module else "[]",
+                module_current_chapter_index=module.current_chapter_index if module else 0,
+                module_current_scene_index=module.current_scene_index if module else 0,
                 gm_username=gm_username,
                 current_players=current_players,
                 max_players=room.max_players or 8
@@ -338,6 +344,9 @@ async def get_room(
         module_title=module.title,
         gm_username=gm.username,
         module_theme=module.theme if module else None,
+        module_chapters_config=module.chapters_config if module else "[]",
+        module_current_chapter_index=module.current_chapter_index if module else 0,
+        module_current_scene_index=module.current_scene_index if module else 0,
         current_players=len(room.participants),
         max_players=room.max_players or 8,
         participants=participant_list
