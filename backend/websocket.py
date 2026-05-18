@@ -139,7 +139,8 @@ manager = ConnectionManager()
 GM_ONLY_MESSAGES = {
     "unit_created", "unit_deleted", "hp_change", "resource_visible",
     "active_map_changed", "character_created", "character_deleted",
-    "block_toggled", "unit_updated",
+    "block_toggled", "unit_updated", "character_updated",
+    "chapter_changed", "task_updated",
 }
 
 
@@ -335,5 +336,27 @@ async def handle_websocket_message(room_id: int, user_id: int, username: str, ro
             "resource_id": data.get("resource_id"),
             "block_index": data.get("block_index"),
             "is_revealed": data.get("is_revealed"),
+            "changed_by": username
+        })
+
+    elif message_type == "character_updated":
+        await manager.broadcast_to_room(room_id, {
+            "type": "character_updated",
+            "character_id": data.get("character_id"),
+            "character": data.get("character"),
+            "updated_by": username
+        })
+
+    elif message_type == "chapter_changed":
+        await manager.broadcast_to_room(room_id, {
+            "type": "chapter_changed",
+            "changed_by": username
+        })
+
+    elif message_type == "task_updated":
+        await manager.broadcast_to_room(room_id, {
+            "type": "task_updated",
+            "task_id": data.get("task_id"),
+            "task": data.get("task"),
             "changed_by": username
         })

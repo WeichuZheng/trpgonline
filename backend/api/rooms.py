@@ -658,6 +658,15 @@ async def toggle_room_resource_visibility(
 
     await db.commit()
 
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "resource_toggled",
+        "resource_id": resource_id,
+        "resource_title": resource.title,
+        "is_visible": toggle_data.is_shown,
+        "changed_by": current_user.username
+    })
+
     return {"message": "资源可见性已更新", "is_shown": toggle_data.is_shown}
 
 
@@ -718,6 +727,15 @@ async def toggle_block_visibility(
 
     room_resource.revealed_blocks = json.dumps(blocks)
     await db.commit()
+
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "block_toggled",
+        "resource_id": resource_id,
+        "block_index": block_data.block_index,
+        "is_revealed": block_data.is_revealed,
+        "changed_by": current_user.username
+    })
 
     return {"message": "段落可见性已更新", "block_index": block_data.block_index, "is_revealed": block_data.is_revealed, "revealed_blocks": blocks}
 
@@ -844,7 +862,8 @@ async def create_character(
     db.add(log)
     await db.commit()
 
-    return CharacterCardResponse(
+    # Broadcast to all room members
+    char_response = CharacterCardResponse(
         id=new_char.id,
         room_id=new_char.room_id,
         name=new_char.name,
@@ -863,6 +882,13 @@ async def create_character(
         is_npc=new_char.is_npc,
         created_at=new_char.created_at
     )
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "character_created",
+        "character": char_response.model_dump(),
+        "created_by": current_user.username
+    })
+
+    return char_response
 
 
 @rooms_router.get("/rooms/{room_id}/character-templates", response_model=List[CharacterTemplateResponse])
@@ -930,7 +956,8 @@ async def update_character(
 
     await db.commit()
     await db.refresh(char)
-    return CharacterCardResponse(
+    # Broadcast to all room members
+    char_response = CharacterCardResponse(
         id=char.id,
         room_id=char.room_id,
         name=char.name,
@@ -949,6 +976,13 @@ async def update_character(
         is_npc=char.is_npc,
         created_at=char.created_at
     )
+    await ws_manager.broadcast_to_room(char.room_id, {
+        "type": "character_updated",
+        "character_id": char.id,
+        "character": char_response.model_dump(),
+        "updated_by": current_user.username
+    })
+    return char_response
 
 
 @rooms_router.delete("/characters/{char_id}")
@@ -970,6 +1004,13 @@ async def delete_character(
 
     await db.delete(char)
     await db.commit()
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(char.room_id, {
+        "type": "character_deleted",
+        "character_id": char.id,
+        "character_name": char.name,
+        "deleted_by": current_user.username
+    })
     return {"message": "角色卡已删除"}
 
 
@@ -1288,6 +1329,13 @@ async def set_active_map(
     room.active_map_id = req.map_id
     await db.commit()
 
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "active_map_changed",
+        "map_id": req.map_id,
+        "changed_by": current_user.username
+    })
+
     return {"message": "激活地图已更新", "active_map_id": req.map_id}
 
 
@@ -1326,6 +1374,12 @@ async def create_room_map_unit(
     db.add(new_unit)
     await db.commit()
     await db.refresh(new_unit)
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "unit_created",
+        "unit": MapUnitResponse.model_validate(new_unit).model_dump(),
+        "created_by": current_user.username
+    })
     return new_unit
 
 
@@ -1360,6 +1414,13 @@ async def update_room_map_unit(
 
     await db.commit()
     await db.refresh(unit)
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "unit_updated",
+        "unit_id": unit.id,
+        "updates": unit_data.model_dump(exclude_unset=True),
+        "updated_by": current_user.username
+    })
     return unit
 
 
@@ -1389,6 +1450,13 @@ async def delete_room_map_unit(
 
     await db.delete(unit)
     await db.commit()
+    # Broadcast to all room members
+    await ws_manager.broadcast_to_room(room_id, {
+        "type": "unit_deleted",
+        "unit_id": unit.id,
+        "unit_name": unit.name,
+        "deleted_by": current_user.username
+    })
     return {"message": "单位已删除"}
 
 

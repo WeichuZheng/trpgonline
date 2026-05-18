@@ -720,7 +720,7 @@ function connectWebSocket() {
   gameStore.setWs(ws)
 }
 
-function handleWsMessage(data) {
+async function handleWsMessage(data) {
   switch (data.type) {
     case 'user_joined':
     case 'user_left':
@@ -743,11 +743,24 @@ function handleWsMessage(data) {
       gameStore.removeCharacter(data.character_id)
       gameStore.addGameLog({ action: 'custom', detail: `删除了角色: ${data.character_name}`, username: data.deleted_by })
       break
+    case 'character_updated':
+      if (data.character) {
+        gameStore.addCharacter(data.character)
+        gameStore.addGameLog({ action: 'custom', detail: `更新了角色: ${data.character.name}`, username: data.updated_by })
+      }
+      break
     case 'block_toggled':
       updateBlockRevealed(data.resource_id, data.block_index, data.is_revealed)
       break
     case 'hp_updated':
       gameStore.addGameLog({ action: data.type, detail: `${data.unit_name}: HP ${data.hp}/${data.max_hp}`, username: data.changed_by })
+      // Sync map unit HP
+      gameStore.updateMapUnit(data.unit_id, { hp: data.hp, max_hp: data.max_hp })
+      // Also sync linked character HP
+      const linkedUnit = gameStore.mapUnits.find(u => u.id === data.unit_id)
+      if (linkedUnit && linkedUnit.character_id) {
+        gameStore.updateCharacter(linkedUnit.character_id, { hp: data.hp, max_hp: data.max_hp })
+      }
       break
     case 'unit_moved':
       gameStore.updateMapUnit(data.unit_id, { x: data.x, y: data.y })
@@ -787,6 +800,15 @@ function handleWsMessage(data) {
       break
     case 'task_updated':
       if (data.task) gameStore.updateTask(data.task_id, data.task)
+      break
+    case 'chapter_changed':
+      // Reload room data to get updated chapter/scene
+      if (currentRoom.value?.module_id) {
+        try {
+          const tasks = await taskService.getModuleTasks(currentRoom.value.module_id)
+          gameStore.setTasks(Array.isArray(tasks) ? tasks : [])
+        } catch {}
+      }
       break
   }
 }
@@ -1095,6 +1117,11 @@ async function saveCharacter() {
     if (editingCharacter.value) {
       await characterService.updateCharacter(editingCharacter.value.id, payload)
       await refreshCharacters()
+      // Broadcast character update via WebSocket
+      const updatedChar = gameStore.characters.find(c => c.id === editingCharacter.value.id)
+      if (ws && ws.readyState === WebSocket.OPEN && updatedChar) {
+        ws.send(JSON.stringify({ type: 'character_updated', character_id: updatedChar.id, character: updatedChar }))
+      }
     } else {
       payload.is_npc = characterForm.is_npc
       const newChar = await characterService.createCharacter(route.params.id, payload)
@@ -1157,6 +1184,14 @@ async function onCharacterUpdate(charId, data) {
         gameStore.updateMapUnit(linkedUnit.id, updates)
         if (ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'unit_updated', unit_id: linkedUnit.id, updates }))
+          // Also send hp_change for real-time HP sync
+          ws.send(JSON.stringify({
+            type: 'hp_change',
+            unit_id: linkedUnit.id,
+            unit_name: linkedUnit.name,
+            hp: updates.hp !== undefined ? updates.hp : linkedUnit.hp,
+            max_hp: updates.max_hp !== undefined ? updates.max_hp : linkedUnit.max_hp
+          }))
         }
       }
     }
@@ -1302,6 +1337,8 @@ async function saveToken() {
 async function onUnitMove(unitId, updates) {
   try {
     await mapService.updateUnit(route.params.id, unitId, updates)
+    // Update local store immediately so GM sees their own drag without lag
+    gameStore.updateMapUnit(unitId, updates)
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'unit_move', unit_id: unitId, unit_name: gameStore.mapUnits.find(u => u.id === unitId)?.name, ...updates }))
     }
