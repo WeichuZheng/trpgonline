@@ -136,52 +136,26 @@ async function onInsertImage(file) {
 .editor-content :deep(.tiptap div[style*="text-align"] img) { display: inline-block; margin: 0.5em 0; }
 .editor-content :deep(.tiptap mark) { background: rgba(var(--accent-rgb), 0.3); padding: 1px 2px; border-radius: 2px; }
 
-/* Visibility visual styles (editor mode) — block elements */
+/* Visibility visual styles (editor mode) — background only, no layout shift */
 .editor-content :deep(.tiptap [data-visibility="gm-only"]:not(img)) {
-  border-left: 3px solid #dc3232;
   background: rgba(220, 50, 50, 0.08);
-  padding-left: 10px;
-  margin-left: -13px;
-  border-radius: 0 4px 4px 0;
-  position: relative;
-}
-
-.editor-content :deep(.tiptap [data-visibility="gm-only"]:not(img)::before) {
-  content: '🔒';
-  position: absolute;
-  left: -2px;
-  top: 2px;
-  font-size: 10px;
+  border-radius: 4px;
 }
 
 .editor-content :deep(.tiptap [data-visibility="hidden"]:not(img)) {
-  border-left: 3px solid #9ca3af;
   background: rgba(156, 163, 175, 0.06);
-  padding-left: 10px;
-  margin-left: -13px;
-  border-radius: 0 4px 4px 0;
-  position: relative;
+  border-radius: 4px;
 }
 
-.editor-content :deep(.tiptap [data-visibility="hidden"]:not(img)::before) {
-  content: '👁';
-  position: absolute;
-  left: -2px;
-  top: 2px;
-  font-size: 10px;
-}
-
-/* Visibility visual styles — img elements (use outline, not border-left/padding) */
+/* Visibility visual styles — img elements */
 .editor-content :deep(.tiptap img[data-visibility="gm-only"]) {
-  outline: 3px solid #dc3232;
-  outline-offset: 3px;
-  opacity: 0.85;
+  outline: 2px solid rgba(220, 50, 50, 0.3);
+  outline-offset: 2px;
 }
 
 .editor-content :deep(.tiptap img[data-visibility="hidden"]) {
-  outline: 3px solid #9ca3af;
-  outline-offset: 3px;
-  opacity: 0.85;
+  outline: 2px solid rgba(156, 163, 175, 0.3);
+  outline-offset: 2px;
 }
 
 .editor-content :deep(.tiptap p.is-editor-empty:first-child::before) {
