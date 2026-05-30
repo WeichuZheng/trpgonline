@@ -100,10 +100,24 @@ async def update_task(
         setattr(task, field, value)
 
     await db.commit()
+    # Reload with clocks
     result = await db.execute(
         select(ModuleTask).where(ModuleTask.id == task.id).options(selectinload(ModuleTask.clocks))
     )
-    return result.unique().scalar_one()
+    updated = result.unique().scalar_one()
+
+    # Broadcast task update to all rooms using this module
+    from backend.websocket import manager as ws_manager
+    room_result = await db.execute(select(Room).where(Room.module_id == task.module_id))
+    for room in room_result.scalars().all():
+        await ws_manager.broadcast_to_room(room.id, {
+            "type": "task_updated",
+            "task_id": task.id,
+            "task": ModuleTaskResponse.model_validate(updated).model_dump(),
+            "changed_by": current_user.username
+        })
+
+    return updated
 
 
 @router.delete("/tasks/{task_id}")

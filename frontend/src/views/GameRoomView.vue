@@ -799,7 +799,13 @@ async function handleWsMessage(data) {
       }
       break
     case 'task_updated':
-      if (data.task) gameStore.updateTask(data.task_id, data.task)
+      // Reload tasks to reflect visibility changes (hidden↔current)
+      if (currentRoom.value?.module_id) {
+        try {
+          const tasks = await taskService.getModuleTasks(currentRoom.value.module_id)
+          gameStore.setTasks(Array.isArray(tasks) ? tasks : [])
+        } catch {}
+      }
       break
     case 'chapter_changed':
       // Reload room data to get updated chapter/scene
