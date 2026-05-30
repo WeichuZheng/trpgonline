@@ -26,13 +26,21 @@ async def get_module_tasks(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """获取模组任务列表（含时钟）"""
-    result = await db.execute(
-        select(ModuleTask)
-        .where(ModuleTask.module_id == module_id)
-        .order_by(ModuleTask.sort_order)
-        .options(selectinload(ModuleTask.clocks))
-    )
+    """获取模组任务列表（含时钟）— 非 GM 不显示隐藏任务"""
+    # Verify module exists
+    result = await db.execute(select(Module).where(Module.id == module_id))
+    module = result.scalar_one_or_none()
+    if not module:
+        raise HTTPException(status_code=404, detail="模组不存在")
+
+    # Build query
+    query = select(ModuleTask).where(ModuleTask.module_id == module_id)
+    # Non-owner users cannot see hidden tasks
+    if module.owner_id != current_user.id:
+        query = query.where(ModuleTask.status != "hidden")
+    query = query.order_by(ModuleTask.sort_order).options(selectinload(ModuleTask.clocks))
+
+    result = await db.execute(query)
     return result.unique().scalars().all()
 
 
